@@ -68,14 +68,20 @@ router.post('/generate', async (req, res) => {
         : [];
 
       for (const ing of ingredients) {
-        const key = ing.name.toLowerCase();
+        // Handle both formats: { name, quantity, unit } and { item, quantity, unit }
+        const ingredientName = ing.name || ing.item;
+        if (!ingredientName) continue;
+
+        const key = ingredientName.toLowerCase();
         const current = needed.get(key) || {
-          name: ing.name,
+          name: ingredientName,
           quantity: 0,
           unit: ing.unit || 'pieces',
-          category: categorizeIngredient(ing.name)
+          category: categorizeIngredient(ingredientName)
         };
-        current.quantity += ing.quantity || 1;
+        // Handle quantity as string or number
+        const qty = typeof ing.quantity === 'string' ? parseFloat(ing.quantity) || 1 : ing.quantity || 1;
+        current.quantity += qty;
         needed.set(key, current);
       }
     }

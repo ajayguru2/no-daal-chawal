@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { mealPlan, history } from '../api/client';
+import { mealPlan } from '../api/client';
 import MealChat from '../components/MealChat';
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner'];
@@ -56,15 +56,7 @@ export default function MealPlan() {
     if (!showChat) return;
 
     try {
-      // Log to history
-      await history.log({
-        mealName: meal.name,
-        cuisine: meal.cuisine,
-        mealType: meal.mealType || showChat.mealType,
-        calories: meal.estimatedCalories,
-      });
-
-      // Add to plan
+      // Add to plan (don't log to history - that happens when meal is eaten)
       await mealPlan.add({
         date: showChat.date.toISOString(),
         mealType: showChat.mealType,
