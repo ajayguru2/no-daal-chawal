@@ -40,7 +40,7 @@ export default function DayReviewCard({ date, onComplete }) {
       await reviews.saveDay(date, review);
       onComplete?.();
     } catch (err) {
-      alert('Error saving review: ' + err.message);
+      console.error(err);
     } finally {
       setSaving(false);
     }

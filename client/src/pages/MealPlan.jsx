@@ -72,7 +72,7 @@ export default function MealPlan() {
       setShowChat(null);
       loadPlans();
     } catch (err) {
-      alert('Error: ' + err.message);
+      console.error(err);
     }
   }
 
@@ -81,7 +81,7 @@ export default function MealPlan() {
       await mealPlan.delete(planId);
       loadPlans();
     } catch (err) {
-      alert('Error: ' + err.message);
+      console.error(err);
     }
   }
 
@@ -92,13 +92,8 @@ export default function MealPlan() {
   }
 
   async function generateWeek() {
+    // Delete existing plans for this week if any
     if (plans.length > 0) {
-      const confirm = window.confirm(
-        'This will replace existing meals for this week. Continue?'
-      );
-      if (!confirm) return;
-
-      // Delete existing plans for this week
       for (const plan of plans) {
         await mealPlan.delete(plan.id);
       }
@@ -109,23 +104,20 @@ export default function MealPlan() {
       await mealPlan.generateWeek(weekStart);
       await loadPlans();
     } catch (err) {
-      alert('Failed to generate: ' + err.message);
+      console.error(err);
     } finally {
       setGenerating(false);
     }
   }
 
   async function generateShoppingList() {
-    if (plans.length === 0) {
-      alert('No meals planned for this week. Add meals first.');
-      return;
-    }
+    if (plans.length === 0) return;
     setGeneratingList(true);
     try {
       await shopping.generate(weekStart);
       navigate('/shopping');
     } catch (err) {
-      alert('Failed to generate shopping list: ' + err.message);
+      console.error(err);
     } finally {
       setGeneratingList(false);
     }

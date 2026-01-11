@@ -178,7 +178,7 @@ export default function Calendar() {
       // Reload data
       loadCalendarData();
     } catch (err) {
-      alert('Failed to log meal: ' + err.message);
+      console.error(err);
     }
   }
 

@@ -37,13 +37,12 @@ export default function Shopping() {
   }
 
   async function handleGenerate() {
-    if (!confirm('Generate shopping list from this week\'s meal plan?')) return;
     setLoading(true);
     try {
       await shopping.generate();
       loadItems();
     } catch (err) {
-      alert('Error: ' + err.message);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -53,21 +52,19 @@ export default function Shopping() {
     try {
       await shopping.update(item.id, { isPurchased: !item.isPurchased });
 
-      // If marking as purchased, offer to add to inventory
+      // Auto-add to inventory when marking as purchased
       if (!item.isPurchased && item.quantity) {
-        if (confirm(`Add ${item.name} to inventory?`)) {
-          await inventory.add({
-            name: item.name,
-            category: item.category,
-            quantity: item.quantity,
-            unit: item.unit || 'pieces',
-          });
-        }
+        await inventory.add({
+          name: item.name,
+          category: item.category,
+          quantity: item.quantity,
+          unit: item.unit || 'pieces',
+        });
       }
 
       loadItems();
     } catch (err) {
-      alert('Error: ' + err.message);
+      console.error(err);
     }
   }
 
@@ -76,17 +73,16 @@ export default function Shopping() {
       await shopping.delete(id);
       loadItems();
     } catch (err) {
-      alert('Error: ' + err.message);
+      console.error(err);
     }
   }
 
   async function handleClearPurchased() {
-    if (!confirm('Clear all purchased items?')) return;
     try {
       await shopping.clearPurchased();
       loadItems();
     } catch (err) {
-      alert('Error: ' + err.message);
+      console.error(err);
     }
   }
 
@@ -101,7 +97,7 @@ export default function Shopping() {
       setShowAdd(false);
       loadItems();
     } catch (err) {
-      alert('Error: ' + err.message);
+      console.error(err);
     }
   }
 

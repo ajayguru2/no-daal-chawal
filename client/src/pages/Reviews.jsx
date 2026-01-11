@@ -74,7 +74,7 @@ export default function Reviews() {
       await history.update(id, { rating });
       loadMealHistory();
     } catch (err) {
-      alert('Error: ' + err.message);
+      console.error(err);
     }
   }
 
@@ -82,9 +82,8 @@ export default function Reviews() {
     setSavingWeek(true);
     try {
       await reviews.saveWeek(weekStart, weekReview);
-      alert('Week review saved!');
     } catch (err) {
-      alert('Error: ' + err.message);
+      console.error(err);
     } finally {
       setSavingWeek(false);
     }
@@ -172,7 +171,7 @@ export default function Reviews() {
       {activeTab === 'day' && (
         <DayReviewCard
           date={today}
-          onComplete={() => alert('Day review saved!')}
+          onComplete={() => {}}
         />
       )}
 

@@ -141,9 +141,8 @@ export default function Home() {
         calories: meal.estimatedCalories,
       });
       await loadCalorieInfo();
-      alert(`"${meal.name}" logged!${meal.estimatedCalories ? ` (${meal.estimatedCalories} kcal)` : ''}`);
     } catch (err) {
-      alert('Failed to log meal: ' + err.message);
+      console.error(err);
     }
   }
 
@@ -153,7 +152,7 @@ export default function Home() {
       const recipe = await recipes.generate(meal);
       setCurrentRecipe(recipe);
     } catch (err) {
-      alert('Failed to generate recipe: ' + err.message);
+      console.error(err);
     } finally {
       setGeneratingRecipe(false);
     }

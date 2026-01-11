@@ -37,13 +37,11 @@ export default function Recipes() {
 
   async function handleDelete(id, e) {
     e.stopPropagation();
-    if (!confirm('Delete this recipe?')) return;
-
     try {
       await recipes.delete(id);
       setRecipeList(prev => prev.filter(r => r.id !== id));
     } catch (err) {
-      alert('Failed to delete: ' + err.message);
+      console.error(err);
     }
   }
 

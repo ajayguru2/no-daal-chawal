@@ -62,17 +62,16 @@ export default function Inventory() {
       resetForm();
       loadItems();
     } catch (err) {
-      alert('Error: ' + err.message);
+      console.error(err);
     }
   }
 
   async function handleDelete(id) {
-    if (!confirm('Delete this item?')) return;
     try {
       await inventory.delete(id);
       loadItems();
     } catch (err) {
-      alert('Error: ' + err.message);
+      console.error(err);
     }
   }
 
@@ -82,7 +81,7 @@ export default function Inventory() {
       await inventory.update(item.id, { quantity: newQty });
       loadItems();
     } catch (err) {
-      alert('Error: ' + err.message);
+      console.error(err);
     }
   }
 

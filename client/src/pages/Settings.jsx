@@ -31,7 +31,7 @@ export default function Settings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      alert('Failed to save: ' + err.message);
+      console.error(err);
     } finally {
       setSaving(false);
     }

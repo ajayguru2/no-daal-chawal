@@ -47,7 +47,7 @@ export default function EndOfDayReminder() {
         setCurrentMealIndex(0);
       }
     } catch (err) {
-      alert('Error saving rating: ' + err.message);
+      console.error(err);
     }
   }
 
