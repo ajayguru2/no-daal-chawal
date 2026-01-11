@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { history } from '../api/client';
+import { history, mealPlan } from '../api/client';
 import StarRating from '../components/StarRating';
 
 const CUISINE_COLORS = {
@@ -28,6 +28,7 @@ const MONTHS = [
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [mealsByDate, setMealsByDate] = useState({});
+  const [plannedByDate, setPlannedByDate] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(null);
   const [stats, setStats] = useState(null);
@@ -42,12 +43,35 @@ export default function Calendar() {
   async function loadCalendarData() {
     setLoading(true);
     try {
-      const [calendarData, statsData] = await Promise.all([
+      const [calendarData, statsData, planData] = await Promise.all([
         history.getCalendar(year, month),
-        history.getStats(30)
+        history.getStats(30),
+        mealPlan.getMonth(year, month)
       ]);
+
       setMealsByDate(calendarData);
       setStats(statsData);
+
+      // Group planned meals by date
+      const plannedMap = {};
+      for (const plan of planData) {
+        const dateKey = plan.date.split('T')[0];
+        if (!plannedMap[dateKey]) {
+          plannedMap[dateKey] = [];
+        }
+        // Parse meal data from notes
+        let mealData = null;
+        try {
+          mealData = plan.notes ? JSON.parse(plan.notes) : null;
+        } catch {}
+
+        plannedMap[dateKey].push({
+          ...plan,
+          mealData,
+          isPlanned: true
+        });
+      }
+      setPlannedByDate(plannedMap);
     } catch (err) {
       console.error(err);
     } finally {
@@ -102,9 +126,19 @@ export default function Calendar() {
     return mealsByDate[dateKey] || [];
   }
 
+  function getPlannedForDate(date) {
+    const dateKey = date.toISOString().split('T')[0];
+    return plannedByDate[dateKey] || [];
+  }
+
   function getDayCalories(date) {
     const meals = getMealsForDate(date);
     return meals.reduce((sum, m) => sum + (m.calories || 0), 0);
+  }
+
+  function getPlannedCalories(date) {
+    const planned = getPlannedForDate(date);
+    return planned.reduce((sum, p) => sum + (p.mealData?.estimatedCalories || 0), 0);
   }
 
   function isToday(date) {
@@ -118,6 +152,7 @@ export default function Calendar() {
 
   const calendarDays = getCalendarDays();
   const selectedMeals = selectedDay ? getMealsForDate(selectedDay) : [];
+  const selectedPlanned = selectedDay ? getPlannedForDate(selectedDay) : [];
 
   return (
     <div className="space-y-6">
@@ -198,7 +233,9 @@ export default function Calendar() {
             <div className="grid grid-cols-7">
               {calendarDays.map((day, index) => {
                 const meals = getMealsForDate(day.date);
+                const planned = getPlannedForDate(day.date);
                 const dayCalories = getDayCalories(day.date);
+                const plannedCals = getPlannedCalories(day.date);
                 const isSelected =
                   selectedDay?.toDateString() === day.date.toDateString();
 
@@ -229,21 +266,21 @@ export default function Calendar() {
                         )}
                       </div>
                       {/* Calorie total for the day */}
-                      {dayCalories > 0 && day.isCurrentMonth && (
+                      {(dayCalories > 0 || plannedCals > 0) && day.isCurrentMonth && (
                         <span className="text-xs font-medium text-gray-400">
-                          {dayCalories}
+                          {dayCalories > 0 ? dayCalories : `~${plannedCals}`}
                         </span>
                       )}
                     </div>
 
-                    {/* Meal Indicators */}
+                    {/* Eaten Meal Indicators */}
                     {meals.length > 0 && day.isCurrentMonth && (
                       <div className="space-y-1">
-                        {meals.slice(0, 3).map((meal, i) => {
+                        {meals.slice(0, 2).map((meal, i) => {
                           const colors = getCuisineColor(meal.cuisine);
                           return (
                             <div
-                              key={i}
+                              key={`eaten-${i}`}
                               className={`text-xs px-1.5 py-0.5 rounded truncate ${colors.bg} ${colors.text}`}
                               title={meal.mealName}
                             >
@@ -254,16 +291,40 @@ export default function Calendar() {
                             </div>
                           );
                         })}
-                        {meals.length > 3 && (
-                          <div className="text-xs text-gray-400 text-center">
-                            +{meals.length - 3} more
-                          </div>
-                        )}
+                      </div>
+                    )}
+
+                    {/* Planned Meal Indicators */}
+                    {planned.length > 0 && day.isCurrentMonth && (
+                      <div className="space-y-1 mt-1">
+                        {planned.slice(0, meals.length > 0 ? 1 : 2).map((plan, i) => {
+                          const mealData = plan.mealData;
+                          const colors = mealData ? getCuisineColor(mealData.cuisine) : CUISINE_COLORS.other;
+                          return (
+                            <div
+                              key={`plan-${i}`}
+                              className={`text-xs px-1.5 py-0.5 rounded truncate border-2 border-dashed ${colors.bg} ${colors.text} opacity-70`}
+                              title={`Planned: ${mealData?.name || plan.mealType}`}
+                            >
+                              <span className="mr-1">
+                                {MEAL_TYPE_ICONS[plan.mealType] || '📋'}
+                              </span>
+                              <span className="truncate">{mealData?.name || plan.mealType}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* More indicator */}
+                    {(meals.length + planned.length) > 3 && day.isCurrentMonth && (
+                      <div className="text-xs text-gray-400 text-center">
+                        +{meals.length + planned.length - 3} more
                       </div>
                     )}
 
                     {/* Empty state dot for days with no meals */}
-                    {meals.length === 0 && day.isCurrentMonth && (
+                    {meals.length === 0 && planned.length === 0 && day.isCurrentMonth && (
                       <div className="flex justify-center pt-2">
                         <div className="w-2 h-2 rounded-full bg-gray-200" />
                       </div>
@@ -276,7 +337,7 @@ export default function Calendar() {
         </div>
 
         {/* Day Detail Panel */}
-        <div className="w-80 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="w-80 bg-white rounded-xl shadow-sm border border-gray-200 p-4 max-h-[600px] overflow-y-auto">
           {selectedDay ? (
             <>
               <h3 className="font-semibold text-gray-900 mb-1">
@@ -288,23 +349,27 @@ export default function Calendar() {
               </h3>
               <div className="flex items-center justify-between mb-4">
                 <p className="text-sm text-gray-500">
-                  {selectedMeals.length} meal{selectedMeals.length !== 1 ? 's' : ''} logged
+                  {selectedMeals.length} eaten{selectedPlanned.length > 0 ? `, ${selectedPlanned.length} planned` : ''}
                 </p>
-                {getDayCalories(selectedDay) > 0 && (
+                {(getDayCalories(selectedDay) > 0 || getPlannedCalories(selectedDay) > 0) && (
                   <span className="text-sm font-medium text-gray-700">
-                    {getDayCalories(selectedDay)} kcal
+                    {getDayCalories(selectedDay) > 0
+                      ? `${getDayCalories(selectedDay)} kcal`
+                      : `~${getPlannedCalories(selectedDay)} kcal`}
                   </span>
                 )}
               </div>
 
-              {selectedMeals.length > 0 ? (
-                <div className="space-y-3">
+              {/* Eaten Meals */}
+              {selectedMeals.length > 0 && (
+                <div className="space-y-3 mb-4">
+                  <h4 className="text-xs font-medium text-gray-500 uppercase">Eaten</h4>
                   {selectedMeals.map((meal) => {
                     const colors = getCuisineColor(meal.cuisine);
                     return (
                       <div
                         key={meal.id}
-                        className={`rounded-lg p-3 ${colors.bg} border border-${colors.text.replace('text-', '')}/20`}
+                        className={`rounded-lg p-3 ${colors.bg}`}
                       >
                         <div className="flex items-start justify-between">
                           <div>
@@ -336,12 +401,52 @@ export default function Calendar() {
                     );
                   })}
                 </div>
-              ) : (
+              )}
+
+              {/* Planned Meals */}
+              {selectedPlanned.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-medium text-gray-500 uppercase">Planned</h4>
+                  {selectedPlanned.map((plan) => {
+                    const mealData = plan.mealData;
+                    const colors = mealData ? getCuisineColor(mealData.cuisine) : CUISINE_COLORS.other;
+                    return (
+                      <div
+                        key={plan.id}
+                        className={`rounded-lg p-3 ${colors.bg} border-2 border-dashed opacity-80`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span>{MEAL_TYPE_ICONS[plan.mealType] || '📋'}</span>
+                          <span className={`font-medium ${colors.text}`}>
+                            {mealData?.name || plan.mealType}
+                          </span>
+                        </div>
+                        {mealData && (
+                          <div className="text-xs text-gray-500 mt-1 capitalize">
+                            {mealData.cuisine?.replace('_', ' ')} • {plan.mealType}
+                            {mealData.estimatedCalories && (
+                              <span className="ml-1">• ~{mealData.estimatedCalories} kcal</span>
+                            )}
+                          </div>
+                        )}
+                        {mealData?.description && (
+                          <div className="mt-2 text-xs text-gray-600 italic">
+                            "{mealData.description}"
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Empty state */}
+              {selectedMeals.length === 0 && selectedPlanned.length === 0 && (
                 <div className="text-center py-8">
                   <div className="text-4xl mb-2">🍽️</div>
-                  <p className="text-gray-500 text-sm">No meals logged</p>
+                  <p className="text-gray-500 text-sm">No meals</p>
                   <p className="text-gray-400 text-xs mt-1">
-                    Log meals from "What to Eat?" page
+                    Plan meals or log from "What to Eat?"
                   </p>
                 </div>
               )}

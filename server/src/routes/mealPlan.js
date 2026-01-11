@@ -2,26 +2,34 @@ import { Router } from 'express';
 
 const router = Router();
 
-// Get meal plan for a week
+// Get meal plan for a week or month
 router.get('/', async (req, res) => {
   try {
-    const { week } = req.query;
-    const startDate = week ? new Date(week) : new Date();
+    const { week, year, month } = req.query;
 
-    // Get start of week (Monday)
-    const day = startDate.getDay();
-    const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
-    const weekStart = new Date(startDate.setDate(diff));
-    weekStart.setHours(0, 0, 0, 0);
+    let startDate, endDate;
 
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 7);
+    if (year && month !== undefined) {
+      // Get plans for a whole month
+      startDate = new Date(parseInt(year), parseInt(month), 1);
+      endDate = new Date(parseInt(year), parseInt(month) + 1, 1);
+    } else {
+      // Get plans for a week
+      const baseDate = week ? new Date(week) : new Date();
+      const day = baseDate.getDay();
+      const diff = baseDate.getDate() - day + (day === 0 ? -6 : 1);
+      startDate = new Date(baseDate.setDate(diff));
+      startDate.setHours(0, 0, 0, 0);
+
+      endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 7);
+    }
 
     const plans = await req.prisma.mealPlan.findMany({
       where: {
         date: {
-          gte: weekStart,
-          lt: weekEnd
+          gte: startDate,
+          lt: endDate
         }
       },
       include: { meal: true },

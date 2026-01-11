@@ -64,6 +64,7 @@ export const preferences = {
 // Meal Plan
 export const mealPlan = {
   getWeek: (week) => request(`/meal-plan${week ? `?week=${week}` : ''}`),
+  getMonth: (year, month) => request(`/meal-plan?year=${year}&month=${month}`),
   add: (plan) => request('/meal-plan', { method: 'POST', body: JSON.stringify(plan) }),
   update: (id, data) => request(`/meal-plan/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: (id) => request(`/meal-plan/${id}`, { method: 'DELETE' }),
