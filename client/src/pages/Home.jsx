@@ -1,30 +1,53 @@
 import { useState, useEffect, useRef } from 'react';
-import { history, preferences } from '../api/client';
+import { suggestions, history, preferences } from '../api/client';
+import MealCard from '../components/MealCard';
+import MoodSelector from '../components/MoodSelector';
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:3001';
 
+const CUISINES = [
+  { value: '', label: 'Any cuisine' },
+  { value: 'north_indian', label: 'North Indian' },
+  { value: 'south_indian', label: 'South Indian' },
+  { value: 'continental', label: 'Continental' },
+  { value: 'chinese', label: 'Chinese' },
+  { value: 'mediterranean', label: 'Mediterranean' },
+];
+
+const MEAL_TYPES = [
+  { value: '', label: 'Any meal' },
+  { value: 'breakfast', label: 'Breakfast' },
+  { value: 'lunch', label: 'Lunch' },
+  { value: 'dinner', label: 'Dinner' },
+  { value: 'snack', label: 'Snack' },
+];
+
+const TIME_OPTIONS = [
+  { value: 15, label: '15 min' },
+  { value: 30, label: '30 min' },
+  { value: 45, label: '45 min' },
+  { value: 60, label: '1 hour+' },
+];
+
 export default function Home() {
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
+  const [mood, setMood] = useState('');
+  const [timeAvailable, setTimeAvailable] = useState(30);
+  const [cuisine, setCuisine] = useState('');
+  const [mealType, setMealType] = useState('');
+  const [mealSuggestions, setMealSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
+  const [error, setError] = useState('');
   const [calorieInfo, setCalorieInfo] = useState(null);
   const [dailyGoal, setDailyGoal] = useState(2000);
-  const messagesEndRef = useRef(null);
+
+  // Refinement state
+  const [refinementInput, setRefinementInput] = useState('');
+  const [conversation, setConversation] = useState([]);
   const inputRef = useRef(null);
 
   useEffect(() => {
     loadCalorieInfo();
-    // Start with AI greeting
-    setMessages([{
-      role: 'assistant',
-      content: "Hey! What are you in the mood to eat today?"
-    }]);
   }, []);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, suggestions]);
 
   async function loadCalorieInfo() {
     try {
@@ -41,38 +64,63 @@ export default function Home() {
     }
   }
 
-  async function sendMessage(e) {
-    e?.preventDefault();
-    if (!input.trim() || loading) return;
-
-    const userMessage = input.trim();
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-    setSuggestions([]);
+  async function getSuggestions() {
     setLoading(true);
+    setError('');
+    setConversation([]);
+    try {
+      const result = await suggestions.get({
+        mood,
+        timeAvailable,
+        cuisine,
+        mealType,
+      });
+      setMealSuggestions(result.suggestions || result);
+      if (result.calorieInfo) {
+        setCalorieInfo(prev => ({
+          ...prev,
+          ...result.calorieInfo
+        }));
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function refineWithFeedback(e) {
+    e?.preventDefault();
+    if (!refinementInput.trim() || loading) return;
+
+    const userMessage = refinementInput.trim();
+    setRefinementInput('');
+    setLoading(true);
+
+    const newConversation = [...conversation, { role: 'user', content: userMessage }];
+    setConversation(newConversation);
 
     try {
       const response = await fetch(`${API_BASE}/api/suggest/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mealType: 'any',
-          conversation: [...messages, { role: 'user', content: userMessage }]
+          mealType: mealType || 'any',
+          conversation: [
+            { role: 'assistant', content: 'Here are some meal suggestions.' },
+            ...newConversation
+          ]
         })
       });
 
       const data = await response.json();
+      setMealSuggestions(data.suggestions || []);
 
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: data.message
-      }]);
-      setSuggestions(data.suggestions || []);
+      if (data.message) {
+        setConversation(prev => [...prev, { role: 'assistant', content: data.message }]);
+      }
     } catch (err) {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: "Sorry, I couldn't think of anything. Try again?"
-      }]);
+      setError('Failed to refine suggestions');
     } finally {
       setLoading(false);
       inputRef.current?.focus();
@@ -88,11 +136,7 @@ export default function Home() {
         calories: meal.estimatedCalories,
       });
       await loadCalorieInfo();
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `Great choice! "${meal.name}" has been logged.${meal.estimatedCalories ? ` (${meal.estimatedCalories} kcal)` : ''} Enjoy your meal!`
-      }]);
-      setSuggestions([]);
+      alert(`"${meal.name}" logged!${meal.estimatedCalories ? ` (${meal.estimatedCalories} kcal)` : ''}`);
     } catch (err) {
       alert('Failed to log meal: ' + err.message);
     }
@@ -103,11 +147,11 @@ export default function Home() {
   const progressPercent = Math.min((consumed / dailyGoal) * 100, 100);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="text-center">
         <h1 className="text-3xl font-bold text-gray-900">What should we eat?</h1>
-        <p className="text-gray-500 mt-2">Tell me what you're craving</p>
+        <p className="text-gray-500 mt-2">Escape the boring meal rut. Find something exciting.</p>
       </div>
 
       {/* Calorie Progress */}
@@ -144,94 +188,155 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Chat Interface */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {/* Messages */}
-        <div className="h-[400px] overflow-y-auto p-4 space-y-4">
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+      {/* Mood Selector */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 className="font-semibold text-gray-900 mb-4">How are you feeling?</h2>
+        <MoodSelector value={mood} onChange={setMood} />
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Time */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Time available
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {TIME_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setTimeAvailable(opt.value)}
+                  className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                    timeAvailable === opt.value
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Cuisine */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Cuisine preference
+            </label>
+            <select
+              value={cuisine}
+              onChange={(e) => setCuisine(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                  msg.role === 'user'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-100 text-gray-800'
-                }`}
-              >
-                {msg.content}
-              </div>
-            </div>
-          ))}
+              {CUISINES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          {/* Loading */}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-gray-100 rounded-2xl px-4 py-2 text-gray-500">
-                Thinking...
-              </div>
-            </div>
-          )}
+          {/* Meal Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Meal type
+            </label>
+            <select
+              value={mealType}
+              onChange={(e) => setMealType(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {MEAL_TYPES.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-          {/* Suggestions */}
-          {suggestions.length > 0 && (
-            <div className="space-y-2">
-              {suggestions.map((meal, i) => (
+        {/* Suggest Button */}
+        <div className="mt-6 text-center">
+          <button
+            onClick={getSuggestions}
+            disabled={loading}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-8 py-3 rounded-xl shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Thinking...' : 'Suggest Something Delicious'}
+          </button>
+        </div>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
+
+      {/* Suggestions */}
+      {mealSuggestions.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="font-semibold text-gray-900">Here's what I suggest:</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {mealSuggestions.map((meal, index) => (
+              <MealCard
+                key={index}
+                meal={meal}
+                onAteThis={() => handleAteThis(meal)}
+              />
+            ))}
+          </div>
+
+          {/* Conversation history */}
+          {conversation.length > 0 && (
+            <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+              {conversation.map((msg, i) => (
                 <div
                   key={i}
-                  className="border border-gray-200 rounded-lg p-3 hover:border-emerald-300 hover:bg-emerald-50/50 transition-colors"
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">{meal.name}</div>
-                      <div className="text-sm text-gray-500">
-                        {meal.cuisine} • {meal.prepTime} min
-                        {meal.estimatedCalories && ` • ${meal.estimatedCalories} kcal`}
-                      </div>
-                      {meal.description && (
-                        <div className="text-sm text-gray-600 mt-1 italic">
-                          "{meal.description}"
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleAteThis(meal)}
-                      className="ml-3 px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
-                    >
-                      I ate this
-                    </button>
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
+                      msg.role === 'user'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-white border border-gray-200 text-gray-800'
+                    }`}
+                  >
+                    {msg.content}
                   </div>
                 </div>
               ))}
             </div>
           )}
 
-          <div ref={messagesEndRef} />
+          {/* Refinement Input */}
+          <form onSubmit={refineWithFeedback} className="bg-gray-50 rounded-xl p-4">
+            <div className="text-sm text-gray-600 mb-2">
+              Not quite right? Tell me what you'd prefer:
+            </div>
+            <div className="flex gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={refinementInput}
+                onChange={(e) => setRefinementInput(e.target.value)}
+                placeholder="I want something spicier... or Indian chicken curry..."
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                disabled={loading}
+              />
+              <button
+                type="submit"
+                disabled={loading || !refinementInput.trim()}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Refine
+              </button>
+            </div>
+          </form>
         </div>
-
-        {/* Input */}
-        <form onSubmit={sendMessage} className="p-4 border-t border-gray-200 bg-gray-50">
-          <div className="flex gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Something spicy... quick breakfast... Indian chicken curry..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              disabled={loading}
-            />
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Send
-            </button>
-          </div>
-        </form>
-      </div>
+      )}
     </div>
   );
 }
