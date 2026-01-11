@@ -16,6 +16,7 @@ import mealPlanRoutes from './routes/mealPlan.js';
 import shoppingRoutes from './routes/shopping.js';
 import reviewsRoutes from './routes/reviews.js';
 import preferencesRoutes from './routes/preferences.js';
+import authRoutes from './routes/auth.js';
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ app.use('/api/meal-plan', mealPlanRoutes);
 app.use('/api/shopping', shoppingRoutes);
 app.use('/api/reviews', reviewsRoutes);
 app.use('/api/preferences', preferencesRoutes);
+app.use('/api/auth', authRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
