@@ -1,0 +1,25 @@
+{
+  "name": "bawarchi-server",
+  "version": "1.0.0",
+  "description": "Bawarchi meal planning API",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:seed": "node src/db/seed.js",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "openai": "^4.68.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  }
+}

@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model InventoryItem {
+  id         String    @id @default(uuid())
+  name       String
+  category   String
+  quantity   Float
+  unit       String
+  lowStockAt Float?
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Meal {
+  id          String     @id @default(uuid())
+  name        String
+  cuisine     String
+  mealType    String
+  prepTime    Int
+  ingredients String
+  recipe      String?
+  isCustom    Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  mealPlans   MealPlan[]
+}
+
+model MealPlan {
+  id       String   @id @default(uuid())
+  date     DateTime
+  mealType String
+  mealId   String?
+  meal     Meal?    @relation(fields: [mealId], references: [id])
+  notes    String?
+}
+
+model MealHistory {
+  id       String   @id @default(uuid())
+  mealName String
+  cuisine  String
+  mealType String
+  eatenAt  DateTime @default(now())
+  rating   Int?
+  notes    String?
+  calories Int?
+}
+
+model ShoppingItem {
+  id          String   @id @default(uuid())
+  name        String
+  quantity    Float?
+  unit        String?
+  category    String
+  isPurchased Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model DayReview {
+  id                String   @id @default(uuid())
+  date              DateTime @unique
+  varietyScore      Int?
+  effortScore       Int?
+  satisfactionScore Int?
+  notes             String?
+  createdAt         DateTime @default(now())
+}
+
+model WeekReview {
+  id                   String   @id @default(uuid())
+  weekStart            DateTime @unique
+  varietyBalance       Int?
+  effortVsSatisfaction Int?
+  highlights           String?
+  improvements         String?
+  notes                String?
+  createdAt            DateTime @default(now())
+}
+
+model UserPreferences {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
