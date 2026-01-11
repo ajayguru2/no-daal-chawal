@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
-import { mealPlan } from '../api/client';
+import { useNavigate } from 'react-router-dom';
+import { mealPlan, shopping } from '../api/client';
 import MealChat from '../components/MealChat';
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner'];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function MealPlan() {
+  const navigate = useNavigate();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generatingList, setGeneratingList] = useState(false);
   const [weekStart, setWeekStart] = useState(() => {
     const today = new Date();
     const day = today.getDay();
@@ -112,6 +115,22 @@ export default function MealPlan() {
     }
   }
 
+  async function generateShoppingList() {
+    if (plans.length === 0) {
+      alert('No meals planned for this week. Add meals first.');
+      return;
+    }
+    setGeneratingList(true);
+    try {
+      await shopping.generate(weekStart);
+      navigate('/shopping');
+    } catch (err) {
+      alert('Failed to generate shopping list: ' + err.message);
+    } finally {
+      setGeneratingList(false);
+    }
+  }
+
   const weekDates = getWeekDates();
 
   if (loading) {
@@ -143,6 +162,25 @@ export default function MealPlan() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
                 AI Generate Week
+              </>
+            )}
+          </button>
+          <button
+            onClick={generateShoppingList}
+            disabled={generatingList || plans.length === 0}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 text-sm font-medium"
+          >
+            {generatingList ? (
+              <>
+                <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                Shopping List
               </>
             )}
           </button>
