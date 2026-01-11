@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { history, mealPlan } from '../api/client';
 import StarRating from '../components/StarRating';
 
+const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:3001';
+
 const CUISINE_COLORS = {
   north_indian: { bg: 'bg-orange-100', text: 'text-orange-700', dot: 'bg-orange-400' },
   south_indian: { bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-400' },
@@ -148,6 +150,29 @@ export default function Calendar() {
 
   function getCuisineColor(cuisine) {
     return CUISINE_COLORS[cuisine] || CUISINE_COLORS.other;
+  }
+
+  async function markAsEaten(plan) {
+    const mealData = plan.mealData;
+    if (!mealData) return;
+
+    try {
+      // Log to history with the planned date
+      await history.log({
+        mealName: mealData.name,
+        cuisine: mealData.cuisine,
+        mealType: plan.mealType,
+        calories: mealData.estimatedCalories,
+      });
+
+      // Optionally delete from meal plan
+      await mealPlan.delete(plan.id);
+
+      // Reload data
+      loadCalendarData();
+    } catch (err) {
+      alert('Failed to log meal: ' + err.message);
+    }
   }
 
   const calendarDays = getCalendarDays();
@@ -433,6 +458,14 @@ export default function Calendar() {
                           <div className="mt-2 text-xs text-gray-600 italic">
                             "{mealData.description}"
                           </div>
+                        )}
+                        {mealData && (
+                          <button
+                            onClick={() => markAsEaten(plan)}
+                            className="mt-2 w-full text-xs py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium transition-colors"
+                          >
+                            I ate this!
+                          </button>
                         )}
                       </div>
                     );
