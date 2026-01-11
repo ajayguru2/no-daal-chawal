@@ -12,8 +12,10 @@ export default function MealPlan() {
   const [weekStart, setWeekStart] = useState(() => {
     const today = new Date();
     const day = today.getDay();
-    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(today.setDate(diff)).toISOString().split('T')[0];
+    // Get next week's Monday
+    const diff = today.getDate() - day + (day === 0 ? 1 : 8);
+    const nextMonday = new Date(today.setDate(diff));
+    return `${nextMonday.getFullYear()}-${String(nextMonday.getMonth() + 1).padStart(2, '0')}-${String(nextMonday.getDate()).padStart(2, '0')}`;
   });
   const [showChat, setShowChat] = useState(null); // { date, mealType }
 
@@ -45,7 +47,7 @@ export default function MealPlan() {
   }
 
   function getPlanForSlot(date, mealType) {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     return plans.find(
       (p) =>
         p.date.startsWith(dateStr) &&
