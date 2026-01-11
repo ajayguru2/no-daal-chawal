@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mealPlan, shopping } from '../api/client';
+import { mealPlan, shopping, history, recipes } from '../api/client';
 import MealChat from '../components/MealChat';
+import MealPlanDetail from '../components/MealPlanDetail';
+import RecipeDisplay from '../components/RecipeDisplay';
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner'];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -21,6 +23,9 @@ export default function MealPlan() {
     return `${nextMonday.getFullYear()}-${String(nextMonday.getMonth() + 1).padStart(2, '0')}-${String(nextMonday.getDate()).padStart(2, '0')}`;
   });
   const [showChat, setShowChat] = useState(null); // { date, mealType }
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [currentRecipe, setCurrentRecipe] = useState(null);
+  const [generatingRecipe, setGeneratingRecipe] = useState(false);
 
   useEffect(() => {
     loadPlans();
@@ -79,6 +84,63 @@ export default function MealPlan() {
   async function removePlan(planId) {
     try {
       await mealPlan.delete(planId);
+      loadPlans();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function handleMealClick(plan, mealData) {
+    setSelectedPlan({ ...plan, mealData });
+  }
+
+  async function handleAteThis() {
+    if (!selectedPlan?.mealData) return;
+    try {
+      await history.log({
+        mealName: selectedPlan.mealData.name,
+        cuisine: selectedPlan.mealData.cuisine,
+        mealType: selectedPlan.mealType,
+        calories: selectedPlan.mealData.estimatedCalories,
+      });
+      await mealPlan.delete(selectedPlan.id);
+      setSelectedPlan(null);
+      loadPlans();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleViewRecipe() {
+    if (!selectedPlan?.mealData) return;
+    setGeneratingRecipe(true);
+    try {
+      const recipe = await recipes.generate(selectedPlan.mealData);
+      setCurrentRecipe(recipe);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setGeneratingRecipe(false);
+    }
+  }
+
+  async function handleReplaceMeal() {
+    if (!selectedPlan) return;
+    const planDate = new Date(selectedPlan.date);
+    const mealType = selectedPlan.mealType;
+    const planId = selectedPlan.id;
+
+    setSelectedPlan(null);
+    await mealPlan.delete(planId);
+    loadPlans();
+    setShowChat({ date: planDate, mealType });
+  }
+
+  async function handleDeletePlan() {
+    if (!selectedPlan) return;
+    try {
+      await mealPlan.delete(selectedPlan.id);
+      setSelectedPlan(null);
       loadPlans();
     } catch (err) {
       console.error(err);
@@ -239,20 +301,17 @@ export default function MealPlan() {
                   }`}
                 >
                   {mealData ? (
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-xs group relative">
+                    <button
+                      onClick={() => handleMealClick(plan, mealData)}
+                      className="w-full bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-xs text-left hover:ring-2 hover:ring-emerald-300 hover:border-emerald-300 transition-all cursor-pointer"
+                    >
                       <div className="font-medium text-gray-800 truncate">
                         {mealData.name}
                       </div>
                       <div className="text-gray-500 truncate">
                         {mealData.prepTime}min
                       </div>
-                      <button
-                        onClick={() => removePlan(plan.id)}
-                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600"
-                      >
-                        ×
-                      </button>
-                    </div>
+                    </button>
                   ) : (
                     <button
                       onClick={() => setShowChat({ date, mealType })}
@@ -274,6 +333,27 @@ export default function MealPlan() {
           mealType={showChat.mealType}
           onSelectMeal={handleSelectMeal}
           onClose={() => setShowChat(null)}
+        />
+      )}
+
+      {/* Meal Detail Modal */}
+      {selectedPlan && (
+        <MealPlanDetail
+          plan={selectedPlan}
+          onClose={() => setSelectedPlan(null)}
+          onAteThis={handleAteThis}
+          onReplace={handleReplaceMeal}
+          onDelete={handleDeletePlan}
+          onViewRecipe={handleViewRecipe}
+          generatingRecipe={generatingRecipe}
+        />
+      )}
+
+      {/* Recipe Display Modal */}
+      {currentRecipe && (
+        <RecipeDisplay
+          recipe={currentRecipe}
+          onClose={() => setCurrentRecipe(null)}
         />
       )}
     </div>
