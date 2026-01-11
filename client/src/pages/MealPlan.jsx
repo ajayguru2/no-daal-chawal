@@ -8,6 +8,7 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export default function MealPlan() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
   const [weekStart, setWeekStart] = useState(() => {
     const today = new Date();
     const day = today.getDay();
@@ -85,6 +86,30 @@ export default function MealPlan() {
     setWeekStart(current.toISOString().split('T')[0]);
   }
 
+  async function generateWeek() {
+    if (plans.length > 0) {
+      const confirm = window.confirm(
+        'This will replace existing meals for this week. Continue?'
+      );
+      if (!confirm) return;
+
+      // Delete existing plans for this week
+      for (const plan of plans) {
+        await mealPlan.delete(plan.id);
+      }
+    }
+
+    setGenerating(true);
+    try {
+      await mealPlan.generateWeek(weekStart);
+      await loadPlans();
+    } catch (err) {
+      alert('Failed to generate: ' + err.message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   const weekDates = getWeekDates();
 
   if (loading) {
@@ -99,23 +124,44 @@ export default function MealPlan() {
           <h1 className="text-2xl font-bold text-gray-900">Meal Plan</h1>
           <p className="text-gray-500">Plan your week ahead</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           <button
-            onClick={() => changeWeek(-1)}
-            className="p-2 hover:bg-gray-100 rounded-lg"
+            onClick={generateWeek}
+            disabled={generating}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 text-sm font-medium"
           >
-            ← Prev
+            {generating ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                AI Generate Week
+              </>
+            )}
           </button>
-          <span className="text-sm font-medium px-4">
-            {weekDates[0].toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })} -{' '}
-            {weekDates[6].toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
-          </span>
-          <button
-            onClick={() => changeWeek(1)}
-            className="p-2 hover:bg-gray-100 rounded-lg"
-          >
-            Next →
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => changeWeek(-1)}
+              className="p-2 hover:bg-gray-100 rounded-lg"
+            >
+              ← Prev
+            </button>
+            <span className="text-sm font-medium px-4">
+              {weekDates[0].toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })} -{' '}
+              {weekDates[6].toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+            </span>
+            <button
+              onClick={() => changeWeek(1)}
+              className="p-2 hover:bg-gray-100 rounded-lg"
+            >
+              Next →
+            </button>
+          </div>
         </div>
       </div>
 

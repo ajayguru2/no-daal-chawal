@@ -371,6 +371,96 @@ RULES:
   }
 }
 
+// Generate a full week's meal plan
+export async function generateWeekMealPlan({
+  weekStart,
+  inventory,
+  recentMeals,
+  reviewContext,
+  calorieContext
+}) {
+  // Build preference insights
+  let preferenceInsights = '';
+  if (reviewContext) {
+    const { highRatedMeals, lowRatedMeals, cuisinePreferences } = reviewContext;
+
+    if (highRatedMeals?.length > 0) {
+      preferenceInsights += `\nFAVORITE MEALS: ${highRatedMeals.map(m => m.mealName).join(', ')}`;
+    }
+    if (lowRatedMeals?.length > 0) {
+      preferenceInsights += `\nDISLIKED MEALS (AVOID): ${lowRatedMeals.map(m => m.mealName).join(', ')}`;
+    }
+    if (cuisinePreferences?.length > 0) {
+      const topCuisines = cuisinePreferences.filter(c => c.avgRating >= 4);
+      if (topCuisines.length > 0) {
+        preferenceInsights += `\nFAVORITE CUISINES: ${topCuisines.map(c => c.cuisine).join(', ')}`;
+      }
+    }
+  }
+
+  const prompt = `Generate a complete week meal plan for a food-loving couple in Bangalore. They HATE repetitive, boring meals (especially daal chawal!).
+
+WEEK STARTING: ${weekStart}
+
+CONTEXT:
+- Available ingredients: ${inventory || 'Standard Indian pantry'}
+- Recently eaten (AVOID these): ${recentMeals || 'None'}
+- Daily calorie target: ${calorieContext?.dailyGoal || 2000} kcal per person
+${preferenceInsights}
+
+REQUIREMENTS:
+1. Plan breakfast, lunch, and dinner for all 7 days (Mon-Sun)
+2. Ensure variety - no cuisine repeated more than 2 days in a row
+3. Mix of quick meals (15-30 min) and elaborate ones (45-60 min)
+4. Balance nutrition across the week
+5. Weekend meals can be more elaborate
+6. Include a mix of vegetarian and non-vegetarian options
+7. Consider Indian home cooking reality - practical portions and prep times
+
+Respond in this exact JSON format:
+{
+  "weekPlan": [
+    {
+      "day": "Monday",
+      "date": "2024-01-15",
+      "meals": {
+        "breakfast": {
+          "name": "Dish name",
+          "cuisine": "north_indian|south_indian|chinese|continental|mediterranean|other",
+          "prepTime": 20,
+          "estimatedCalories": 350,
+          "description": "Brief appetizing description",
+          "ingredients": [{"name": "Ingredient", "quantity": 1, "unit": "kg"}]
+        },
+        "lunch": { ... },
+        "dinner": { ... }
+      }
+    }
+  ]
+}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a culinary expert who creates balanced, exciting weekly meal plans for Indian home cooks. Always respond with valid JSON only.'
+        },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.8,
+      response_format: { type: 'json_object' }
+    });
+
+    const content = response.choices[0].message.content;
+    return JSON.parse(content);
+  } catch (error) {
+    console.error('Week meal plan generation error:', error);
+    throw new Error('Failed to generate week meal plan');
+  }
+}
+
 // Generate a detailed recipe for a meal
 export async function generateRecipe(meal) {
   const prompt = `Generate a simple, home-cook friendly recipe for "${meal.name}" (${meal.cuisine} cuisine).

@@ -68,6 +68,7 @@ export const mealPlan = {
   add: (plan) => request('/meal-plan', { method: 'POST', body: JSON.stringify(plan) }),
   update: (id, data) => request(`/meal-plan/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: (id) => request(`/meal-plan/${id}`, { method: 'DELETE' }),
+  generateWeek: (weekStart) => request('/meal-plan/generate-week', { method: 'POST', body: JSON.stringify({ weekStart }) }),
 };
 
 // Shopping
