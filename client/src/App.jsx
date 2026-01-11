@@ -7,7 +7,6 @@ import Reviews from './pages/Reviews';
 import Calendar from './pages/Calendar';
 import Recipes from './pages/Recipes';
 import Settings from './pages/Settings';
-import EndOfDayReminder from './components/EndOfDayReminder';
 
 function App() {
   return (
@@ -139,9 +138,6 @@ function App() {
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>
-
-      {/* End of day reminder */}
-      <EndOfDayReminder />
     </div>
   );
 }
