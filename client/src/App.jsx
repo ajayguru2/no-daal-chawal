@@ -5,6 +5,7 @@ import MealPlan from './pages/MealPlan';
 import Shopping from './pages/Shopping';
 import Reviews from './pages/Reviews';
 import Calendar from './pages/Calendar';
+import Recipes from './pages/Recipes';
 import Settings from './pages/Settings';
 import EndOfDayReminder from './components/EndOfDayReminder';
 
@@ -97,6 +98,18 @@ function App() {
                 Calendar
               </NavLink>
               <NavLink
+                to="/recipes"
+                className={({ isActive }) =>
+                  `px-3 py-2 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'text-gray-900 border-b-2 border-gray-900'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`
+                }
+              >
+                Recipes
+              </NavLink>
+              <NavLink
                 to="/settings"
                 className={({ isActive }) =>
                   `px-3 py-2 text-sm font-medium transition-colors ${
@@ -122,6 +135,7 @@ function App() {
           <Route path="/shopping" element={<Shopping />} />
           <Route path="/reviews" element={<Reviews />} />
           <Route path="/calendar" element={<Calendar />} />
+          <Route path="/recipes" element={<Recipes />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>

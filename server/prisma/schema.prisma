@@ -50,6 +50,24 @@ model MealHistory {
   rating   Int?
   notes    String?
   calories Int?
+  recipeId String?
+  recipe   Recipe?  @relation(fields: [recipeId], references: [id])
+}
+
+model Recipe {
+  id           String        @id @default(uuid())
+  mealName     String
+  cuisine      String
+  prepTime     Int
+  cookTime     Int
+  servings     Int           @default(2)
+  ingredients  String        // JSON array
+  instructions String        // JSON array of steps
+  tips         String?
+  description  String?
+  calories     Int?
+  createdAt    DateTime      @default(now())
+  mealHistory  MealHistory[]
 }
 
 model ShoppingItem {

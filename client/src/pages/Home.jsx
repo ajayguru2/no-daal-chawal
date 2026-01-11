@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { suggestions, history, preferences } from '../api/client';
+import { suggestions, history, preferences, recipes } from '../api/client';
 import MealCard from '../components/MealCard';
 import MoodSelector from '../components/MoodSelector';
+import RecipeDisplay from '../components/RecipeDisplay';
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:3001';
 
@@ -44,6 +45,10 @@ export default function Home() {
   const [refinementInput, setRefinementInput] = useState('');
   const [conversation, setConversation] = useState([]);
   const inputRef = useRef(null);
+
+  // Recipe state
+  const [currentRecipe, setCurrentRecipe] = useState(null);
+  const [generatingRecipe, setGeneratingRecipe] = useState(false);
 
   useEffect(() => {
     loadCalorieInfo();
@@ -139,6 +144,18 @@ export default function Home() {
       alert(`"${meal.name}" logged!${meal.estimatedCalories ? ` (${meal.estimatedCalories} kcal)` : ''}`);
     } catch (err) {
       alert('Failed to log meal: ' + err.message);
+    }
+  }
+
+  async function handleGetRecipe(meal) {
+    setGeneratingRecipe(true);
+    try {
+      const recipe = await recipes.generate(meal);
+      setCurrentRecipe(recipe);
+    } catch (err) {
+      alert('Failed to generate recipe: ' + err.message);
+    } finally {
+      setGeneratingRecipe(false);
     }
   }
 
@@ -285,6 +302,7 @@ export default function Home() {
                 key={index}
                 meal={meal}
                 onAteThis={() => handleAteThis(meal)}
+                onGetRecipe={() => handleGetRecipe(meal)}
               />
             ))}
           </div>
@@ -336,6 +354,24 @@ export default function Home() {
             </div>
           </form>
         </div>
+      )}
+
+      {/* Recipe generating indicator */}
+      {generatingRecipe && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 flex items-center gap-3">
+            <div className="animate-spin w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full" />
+            <span className="text-gray-700">Generating recipe...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Recipe display modal */}
+      {currentRecipe && (
+        <RecipeDisplay
+          recipe={currentRecipe}
+          onClose={() => setCurrentRecipe(null)}
+        />
       )}
     </div>
   );

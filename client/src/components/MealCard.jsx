@@ -8,7 +8,7 @@ const CUISINE_LABELS = {
   other: 'Other',
 };
 
-export default function MealCard({ meal, onAteThis, showActions = true }) {
+export default function MealCard({ meal, onAteThis, onGetRecipe, showActions = true }) {
   const ingredients = typeof meal.ingredients === 'string'
     ? JSON.parse(meal.ingredients)
     : meal.ingredients;
@@ -84,10 +84,21 @@ export default function MealCard({ meal, onAteThis, showActions = true }) {
 
       {/* Actions */}
       {showActions && (
-        <div className="pt-3 border-t border-gray-100 mt-3">
+        <div className="pt-3 border-t border-gray-100 mt-3 flex gap-2">
+          {onGetRecipe && (
+            <button
+              onClick={onGetRecipe}
+              className="flex-1 border border-emerald-500 text-emerald-600 hover:bg-emerald-50 font-medium py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-1.5"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Recipe
+            </button>
+          )}
           <button
             onClick={onAteThis}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2 rounded-lg text-sm transition-colors"
+            className={`${onGetRecipe ? 'flex-1' : 'w-full'} bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2 rounded-lg text-sm transition-colors`}
           >
             I ate this!
           </button>

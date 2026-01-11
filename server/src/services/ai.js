@@ -341,3 +341,64 @@ RULES:
     };
   }
 }
+
+// Generate a detailed recipe for a meal
+export async function generateRecipe(meal) {
+  const prompt = `Generate a simple, home-cook friendly recipe for "${meal.name}" (${meal.cuisine} cuisine).
+
+MEAL CONTEXT:
+- Name: ${meal.name}
+- Cuisine: ${meal.cuisine}
+- Prep time: ${meal.prepTime || 30} minutes
+- Estimated calories: ${meal.estimatedCalories || 'not specified'}
+- Description: ${meal.description || 'not provided'}
+
+REQUIREMENTS:
+1. Keep it simple - suitable for home cooks in India
+2. Use commonly available ingredients
+3. Clear, numbered step-by-step instructions
+4. Include helpful tips for best results
+5. Realistic prep and cook times
+
+Respond in this exact JSON format:
+{
+  "mealName": "${meal.name}",
+  "cuisine": "${meal.cuisine}",
+  "description": "A brief, appetizing description",
+  "prepTime": 15,
+  "cookTime": 20,
+  "servings": 2,
+  "calories": 450,
+  "ingredients": [
+    { "item": "Ingredient name", "quantity": "200", "unit": "g", "notes": "optional prep note" }
+  ],
+  "instructions": [
+    { "step": 1, "text": "Step description", "time": "5 min" }
+  ],
+  "tips": [
+    "Helpful cooking tip 1",
+    "Helpful cooking tip 2"
+  ]
+}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a culinary expert who creates clear, practical recipes for Indian home cooks. Always respond with valid JSON only.'
+        },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      response_format: { type: 'json_object' }
+    });
+
+    const content = response.choices[0].message.content;
+    return JSON.parse(content);
+  } catch (error) {
+    console.error('Recipe generation error:', error);
+    throw new Error('Failed to generate recipe');
+  }
+}

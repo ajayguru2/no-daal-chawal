@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
+import { recipes } from '../api/client';
+import RecipeDisplay from './RecipeDisplay';
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:3001';
 
 export default function MealChat({ mealType, onSelectMeal, onClose }) {
+  const [currentRecipe, setCurrentRecipe] = useState(null);
+  const [generatingRecipe, setGeneratingRecipe] = useState(null); // meal name being generated
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [suggestions, setSuggestions] = useState([]);
@@ -27,6 +31,18 @@ export default function MealChat({ mealType, onSelectMeal, onClose }) {
       console.error('Failed to fetch suggestions:', err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGetRecipe(meal) {
+    setGeneratingRecipe(meal.name);
+    try {
+      const recipe = await recipes.generate(meal);
+      setCurrentRecipe(recipe);
+    } catch (err) {
+      console.error('Failed to generate recipe:', err);
+    } finally {
+      setGeneratingRecipe(null);
     }
   }
 
@@ -115,12 +131,21 @@ export default function MealChat({ mealType, onSelectMeal, onClose }) {
                         </div>
                       )}
                     </div>
-                    <button
-                      onClick={() => onSelectMeal(meal)}
-                      className="ml-3 px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
-                    >
-                      Select
-                    </button>
+                    <div className="ml-3 flex gap-2">
+                      <button
+                        onClick={() => handleGetRecipe(meal)}
+                        disabled={generatingRecipe === meal.name}
+                        className="px-3 py-1.5 border border-emerald-500 text-emerald-600 text-sm font-medium rounded-lg hover:bg-emerald-50 transition-colors disabled:opacity-50"
+                      >
+                        {generatingRecipe === meal.name ? '...' : 'Recipe'}
+                      </button>
+                      <button
+                        onClick={() => onSelectMeal(meal)}
+                        className="px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+                      >
+                        Select
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -191,6 +216,14 @@ export default function MealChat({ mealType, onSelectMeal, onClose }) {
           </form>
         ) : null}
       </div>
+
+      {/* Recipe display modal */}
+      {currentRecipe && (
+        <RecipeDisplay
+          recipe={currentRecipe}
+          onClose={() => setCurrentRecipe(null)}
+        />
+      )}
     </div>
   );
 }

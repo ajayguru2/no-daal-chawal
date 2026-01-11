@@ -88,3 +88,12 @@ export const reviews = {
   saveWeek: (weekStart, data) => request(`/reviews/week/${weekStart}`, { method: 'PUT', body: JSON.stringify(data) }),
   getSummary: (days = 30) => request(`/reviews/summary?days=${days}`),
 };
+
+// Recipes
+export const recipes = {
+  getAll: () => request('/recipes'),
+  get: (id) => request(`/recipes/${id}`),
+  generate: (meal) => request('/recipes/generate', { method: 'POST', body: JSON.stringify({ meal }) }),
+  delete: (id) => request(`/recipes/${id}`, { method: 'DELETE' }),
+  search: (query) => request(`/recipes/search/${encodeURIComponent(query)}`),
+};
