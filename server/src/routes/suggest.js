@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { suggestMeals } from '../services/ai.js';
+import { suggestMeals, chatSuggestMeals } from '../services/ai.js';
 
 const router = Router();
 
@@ -127,6 +127,56 @@ router.post('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Suggestion error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Conversational meal suggestions
+router.post('/chat', async (req, res) => {
+  try {
+    const { mealType, conversation } = req.body;
+
+    // Get context from DB
+    const inventory = await req.prisma.inventoryItem.findMany();
+
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    const recentMeals = await req.prisma.mealHistory.findMany({
+      where: { eatenAt: { gte: twoWeeksAgo } },
+      orderBy: { eatenAt: 'desc' }
+    });
+
+    // Get calorie context
+    const calorieGoalPref = await req.prisma.userPreferences.findUnique({
+      where: { key: 'dailyCalorieGoal' }
+    });
+    const dailyCalorieGoal = calorieGoalPref ? parseInt(calorieGoalPref.value) : 2000;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const todaysMeals = await req.prisma.mealHistory.findMany({
+      where: { eatenAt: { gte: today, lt: tomorrow } }
+    });
+    const consumedCalories = todaysMeals.reduce((sum, m) => sum + (m.calories || 0), 0);
+
+    const result = await chatSuggestMeals({
+      mealType,
+      conversation,
+      inventory: inventory.map(i => `${i.name} (${i.quantity} ${i.unit})`).join(', '),
+      recentMeals: recentMeals.map(m => m.mealName).join(', '),
+      calorieContext: {
+        dailyGoal: dailyCalorieGoal,
+        consumed: consumedCalories,
+        remaining: dailyCalorieGoal - consumedCalories
+      }
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Chat suggestion error:', error);
     res.status(500).json({ error: error.message });
   }
 });

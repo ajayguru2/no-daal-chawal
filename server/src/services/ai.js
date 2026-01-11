@@ -32,6 +32,16 @@ export async function suggestMeals({
     ? rejectedMeals.map(r => `${r.name} (reason: ${r.reason})`).join(', ')
     : 'none';
 
+  // Extract positive preferences from rejection reasons (e.g., "I want Indian", "prefer chicken")
+  const positivePreferences = rejectedMeals
+    .filter(r => r.reason && /\b(want|prefer|need|give|craving|looking for|in the mood for)\b/i.test(r.reason))
+    .map(r => r.reason)
+    .join('; ');
+
+  const preferenceInstruction = positivePreferences
+    ? `\nIMPORTANT USER REQUEST: "${positivePreferences}" - Prioritize suggestions that match this request!`
+    : '';
+
   // Build review insights for AI context
   let reviewInsights = '';
   if (reviewContext) {
@@ -87,7 +97,7 @@ CRITICAL RULES:
 1. NEVER suggest any of these recently eaten meals: ${recentMealsList}
 2. AVOID these cuisines (eaten yesterday): ${avoidCuisinesList}
 3. NEVER suggest these rejected meals (user said no): ${rejectedList}
-4. Learn from rejections - if user rejected something for being "too heavy", suggest lighter options
+4. Learn from rejections - if user rejected something for being "too heavy", suggest lighter options. If the rejection reason contains a positive request like "I want X" or "prefer Y", PRIORITIZE that in your suggestions
 5. Suggest INTERESTING, well-crafted meals - not boring defaults
 6. Consider the available ingredients but don't limit to only those
 7. Pay attention to user's past ratings and preferences below
@@ -257,4 +267,77 @@ function getFallbackSuggestions(mood, timeAvailable, mealType) {
 
   const time = parseInt(timeAvailable) || 30;
   return time <= 25 ? quickMeals : elaborateMeals;
+}
+
+// Conversational meal suggestions
+export async function chatSuggestMeals({
+  mealType,
+  conversation,
+  inventory,
+  recentMeals,
+  calorieContext
+}) {
+  const systemPrompt = `You are a friendly culinary assistant for "No Daal Chawal" - helping a food-loving couple in Bangalore find exciting meals. You HATE boring, repetitive food.
+
+CONTEXT:
+- Meal type: ${mealType === 'any' ? 'Any (user will tell you)' : mealType}
+- Available ingredients: ${inventory || 'Not specified'}
+- Recently eaten (avoid these): ${recentMeals || 'None'}
+- Calorie budget: ${calorieContext.remaining} kcal remaining today (goal: ${calorieContext.dailyGoal})
+
+YOUR PERSONALITY:
+- Friendly and enthusiastic about food
+- Ask clarifying questions if needed (cuisine preference, spice level, time available)
+- Give helpful suggestions based on what they say
+- Be concise - 1-2 sentences of chat, then suggestions
+
+RESPONSE FORMAT:
+Always respond with valid JSON:
+{
+  "message": "Your conversational response (1-2 sentences)",
+  "suggestions": [
+    {
+      "name": "Dish Name",
+      "cuisine": "north_indian|south_indian|chinese|continental|mediterranean|other",
+      "mealType": "${mealType}",
+      "prepTime": 30,
+      "estimatedCalories": 450,
+      "ingredients": [{"name": "Ingredient", "quantity": 1, "unit": "kg"}],
+      "description": "A tempting one-liner"
+    }
+  ]
+}
+
+RULES:
+- If user is vague, ask ONE clarifying question and give 2-3 diverse suggestions
+- If user is specific, give 3 matching suggestions
+- Never suggest recently eaten meals
+- Include calorie estimates
+- Keep suggestions interesting and varied`;
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...conversation.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }))
+  ];
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages,
+      temperature: 0.8,
+      response_format: { type: 'json_object' }
+    });
+
+    const content = response.choices[0].message.content;
+    return JSON.parse(content);
+  } catch (error) {
+    console.error('Chat AI error:', error);
+    return {
+      message: "I'm having trouble thinking right now. Could you try again?",
+      suggestions: []
+    };
+  }
 }

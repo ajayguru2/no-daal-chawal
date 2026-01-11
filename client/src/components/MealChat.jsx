@@ -1,45 +1,27 @@
-import { useState, useEffect, useRef } from 'react';
-import { history, preferences } from '../api/client';
+import { useState, useRef, useEffect } from 'react';
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:3001';
 
-export default function Home() {
+export default function MealChat({ mealType, onSelectMeal, onClose }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
-  const [calorieInfo, setCalorieInfo] = useState(null);
-  const [dailyGoal, setDailyGoal] = useState(2000);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
-    loadCalorieInfo();
-    // Start with AI greeting
+    // Start conversation with AI greeting
     setMessages([{
       role: 'assistant',
-      content: "Hey! What are you in the mood to eat today?"
+      content: `What are you in the mood for ${mealType}?`
     }]);
-  }, []);
+    inputRef.current?.focus();
+  }, [mealType]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, suggestions]);
-
-  async function loadCalorieInfo() {
-    try {
-      const [todayData, goalPref] = await Promise.all([
-        history.getTodayCalories(),
-        preferences.get('dailyCalorieGoal')
-      ]);
-      setCalorieInfo(todayData);
-      if (goalPref.value) {
-        setDailyGoal(parseInt(goalPref.value));
-      }
-    } catch (err) {
-      console.error('Failed to load calorie info:', err);
-    }
-  }
 
   async function sendMessage(e) {
     e?.preventDefault();
@@ -56,7 +38,7 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mealType: 'any',
+          mealType,
           conversation: [...messages, { role: 'user', content: userMessage }]
         })
       });
@@ -71,7 +53,7 @@ export default function Home() {
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: "Sorry, I couldn't think of anything. Try again?"
+        content: "Sorry, I couldn't get suggestions. Try again?"
       }]);
     } finally {
       setLoading(false);
@@ -79,75 +61,28 @@ export default function Home() {
     }
   }
 
-  async function handleAteThis(meal) {
-    try {
-      await history.log({
-        mealName: meal.name,
-        cuisine: meal.cuisine,
-        mealType: meal.mealType,
-        calories: meal.estimatedCalories,
-      });
-      await loadCalorieInfo();
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `Great choice! "${meal.name}" has been logged.${meal.estimatedCalories ? ` (${meal.estimatedCalories} kcal)` : ''} Enjoy your meal!`
-      }]);
-      setSuggestions([]);
-    } catch (err) {
-      alert('Failed to log meal: ' + err.message);
-    }
+  function handleSelect(meal) {
+    onSelectMeal(meal);
   }
 
-  const consumed = calorieInfo?.totalCalories || 0;
-  const remaining = dailyGoal - consumed;
-  const progressPercent = Math.min((consumed / dailyGoal) * 100, 100);
-
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-gray-900">What should we eat?</h1>
-        <p className="text-gray-500 mt-2">Tell me what you're craving</p>
-      </div>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl w-full max-w-xl flex flex-col max-h-[85vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold capitalize">
+            Pick {mealType}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-xl"
+          >
+            ✕
+          </button>
+        </div>
 
-      {/* Calorie Progress */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium text-gray-700">Today's Calories</span>
-          <span className="text-sm text-gray-500">
-            {consumed} / {dailyGoal} kcal
-          </span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-3">
-          <div
-            className={`h-3 rounded-full transition-all ${
-              consumed > dailyGoal
-                ? 'bg-red-500'
-                : consumed > dailyGoal * 0.8
-                ? 'bg-yellow-500'
-                : 'bg-green-500'
-            }`}
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-        <div className="flex justify-between mt-1">
-          <span className={`text-xs ${remaining > 0 ? 'text-gray-500' : 'text-red-500'}`}>
-            {remaining > 0
-              ? `${remaining} kcal remaining`
-              : `${Math.abs(remaining)} kcal over budget`}
-          </span>
-          {calorieInfo?.mealCount > 0 && (
-            <span className="text-xs text-gray-400">
-              {calorieInfo.mealCount} meal{calorieInfo.mealCount !== 1 ? 's' : ''} logged
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Chat Interface */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {/* Messages */}
-        <div className="h-[400px] overflow-y-auto p-4 space-y-4">
+        {/* Chat Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((msg, i) => (
             <div
               key={i}
@@ -165,7 +100,7 @@ export default function Home() {
             </div>
           ))}
 
-          {/* Loading */}
+          {/* Loading indicator */}
           {loading && (
             <div className="flex justify-start">
               <div className="bg-gray-100 rounded-2xl px-4 py-2 text-gray-500">
@@ -174,7 +109,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* Suggestions */}
+          {/* Meal Suggestions */}
           {suggestions.length > 0 && (
             <div className="space-y-2">
               {suggestions.map((meal, i) => (
@@ -196,10 +131,10 @@ export default function Home() {
                       )}
                     </div>
                     <button
-                      onClick={() => handleAteThis(meal)}
+                      onClick={() => handleSelect(meal)}
                       className="ml-3 px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
                     >
-                      I ate this
+                      Select
                     </button>
                   </div>
                 </div>
@@ -211,14 +146,14 @@ export default function Home() {
         </div>
 
         {/* Input */}
-        <form onSubmit={sendMessage} className="p-4 border-t border-gray-200 bg-gray-50">
+        <form onSubmit={sendMessage} className="p-4 border-t border-gray-200">
           <div className="flex gap-2">
             <input
               ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Something spicy... quick breakfast... Indian chicken curry..."
+              placeholder="Tell me what you're craving..."
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               disabled={loading}
             />
