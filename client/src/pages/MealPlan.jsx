@@ -71,7 +71,7 @@ export default function MealPlan() {
     setSuggestLoading(true);
     try {
       const results = await suggestions.get({ mealType });
-      setMealSuggestions(results);
+      setMealSuggestions(results.suggestions || results);
     } catch (err) {
       console.error(err);
     } finally {
@@ -88,7 +88,7 @@ export default function MealPlan() {
         mealType: showSuggest.mealType,
         rejectedMeals: rejectedMeals.map(r => ({ name: r.name, reason: r.reason }))
       });
-      setMealSuggestions(results);
+      setMealSuggestions(results.suggestions || results);
     } catch (err) {
       console.error(err);
     } finally {
