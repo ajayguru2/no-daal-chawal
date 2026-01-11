@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { mealPlan, suggestions, history } from '../api/client';
+import { mealPlan, suggestions, history, preferences } from '../api/client';
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner'];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -18,8 +18,11 @@ export default function MealPlan() {
   const [mealSuggestions, setMealSuggestions] = useState([]);
   const [rejectedMeals, setRejectedMeals] = useState([]);
   const [showRejectOptions, setShowRejectOptions] = useState(null);
+  const [customReasons, setCustomReasons] = useState([]);
+  const [showCustomInput, setShowCustomInput] = useState(null);
+  const [customReasonText, setCustomReasonText] = useState('');
 
-  const REJECTION_REASONS = [
+  const DEFAULT_REJECTION_REASONS = [
     { id: 'too_heavy', label: 'Too heavy' },
     { id: 'too_light', label: 'Too light' },
     { id: 'missing_ingredients', label: 'Missing ingredients' },
@@ -31,6 +34,31 @@ export default function MealPlan() {
   useEffect(() => {
     loadPlans();
   }, [weekStart]);
+
+  useEffect(() => {
+    loadCustomReasons();
+  }, []);
+
+  async function loadCustomReasons() {
+    try {
+      const result = await preferences.get('rejectionReasons');
+      if (result?.value) {
+        setCustomReasons(JSON.parse(result.value));
+      }
+    } catch (err) {
+      // No custom reasons saved yet
+    }
+  }
+
+  async function saveCustomReason(reason) {
+    const newReasons = [...customReasons, { id: `custom_${Date.now()}`, label: reason }];
+    setCustomReasons(newReasons);
+    try {
+      await preferences.set('rejectionReasons', JSON.stringify(newReasons));
+    } catch (err) {
+      console.error('Failed to save custom reason:', err);
+    }
+  }
 
   async function loadPlans() {
     setLoading(true);
@@ -97,10 +125,12 @@ export default function MealPlan() {
   }
 
   function rejectMeal(meal, reasonId) {
-    const reason = REJECTION_REASONS.find(r => r.id === reasonId);
+    const allReasons = [...DEFAULT_REJECTION_REASONS, ...customReasons];
+    const reason = allReasons.find(r => r.id === reasonId);
     setRejectedMeals(prev => [...prev, { ...meal, reason: reason?.label || reasonId }]);
     setMealSuggestions(prev => prev.filter(m => m.name !== meal.name));
     setShowRejectOptions(null);
+    setShowCustomInput(null);
   }
 
   async function assignMeal(date, mealType, meal) {
@@ -310,11 +340,11 @@ export default function MealPlan() {
                                 ✕
                               </button>
                               {showRejectOptions === i && (
-                                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1 min-w-[160px]">
+                                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1 min-w-[180px]">
                                   <div className="px-3 py-1.5 text-xs text-gray-500 font-medium border-b border-gray-100">
                                     Why not?
                                   </div>
-                                  {REJECTION_REASONS.map(reason => (
+                                  {[...DEFAULT_REJECTION_REASONS, ...customReasons].map(reason => (
                                     <button
                                       key={reason.id}
                                       onClick={() => rejectMeal(meal, reason.id)}
@@ -323,6 +353,63 @@ export default function MealPlan() {
                                       {reason.label}
                                     </button>
                                   ))}
+                                  <div className="border-t border-gray-100 mt-1 pt-1">
+                                    {showCustomInput === i ? (
+                                      <div className="px-2 py-1">
+                                        <input
+                                          type="text"
+                                          value={customReasonText}
+                                          onChange={(e) => setCustomReasonText(e.target.value)}
+                                          placeholder="Enter reason..."
+                                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                          autoFocus
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && customReasonText.trim()) {
+                                              saveCustomReason(customReasonText.trim());
+                                              rejectMeal(meal, customReasonText.trim());
+                                              setCustomReasonText('');
+                                              setShowCustomInput(null);
+                                            }
+                                            if (e.key === 'Escape') {
+                                              setShowCustomInput(null);
+                                              setCustomReasonText('');
+                                            }
+                                          }}
+                                        />
+                                        <div className="flex gap-1 mt-1">
+                                          <button
+                                            onClick={() => {
+                                              if (customReasonText.trim()) {
+                                                saveCustomReason(customReasonText.trim());
+                                                rejectMeal(meal, customReasonText.trim());
+                                                setCustomReasonText('');
+                                                setShowCustomInput(null);
+                                              }
+                                            }}
+                                            className="flex-1 text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                                          >
+                                            Add
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              setShowCustomInput(null);
+                                              setCustomReasonText('');
+                                            }}
+                                            className="text-xs text-gray-500 px-2 py-1 hover:bg-gray-100 rounded"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={() => setShowCustomInput(i)}
+                                        className="block w-full text-left px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50"
+                                      >
+                                        + Other...
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               )}
                             </div>
