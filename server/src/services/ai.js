@@ -310,10 +310,12 @@ Always respond with valid JSON:
 
 RULES:
 - If user is vague, ask ONE clarifying question and give 2-3 diverse suggestions
-- If user is specific, give 3 matching suggestions
+- If user names a SPECIFIC DISH (e.g. "chicken biryani", "palak paneer"), include that EXACT dish as the FIRST suggestion, then add 2 similar alternatives
+- If user describes preferences (e.g. "something light and Indian"), give 3 matching suggestions
 - Never suggest recently eaten meals
 - Include calorie estimates
-- Keep suggestions interesting and varied`;
+- Keep suggestions interesting and varied
+- ALWAYS update suggestions based on user's latest message - never keep old suggestions`;
 
   const messages = [
     { role: 'system', content: systemPrompt },
