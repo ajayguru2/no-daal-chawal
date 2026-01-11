@@ -146,6 +146,42 @@ router.post('/chat', async (req, res) => {
       orderBy: { eatenAt: 'desc' }
     });
 
+    // Get review context for AI (last 30 days) - same as main suggest
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const ratedMeals = await req.prisma.mealHistory.findMany({
+      where: {
+        eatenAt: { gte: thirtyDaysAgo },
+        rating: { not: null }
+      },
+      orderBy: { rating: 'desc' }
+    });
+
+    // Build cuisine preferences from ratings
+    const cuisineRatings = {};
+    ratedMeals.forEach(m => {
+      if (!cuisineRatings[m.cuisine]) {
+        cuisineRatings[m.cuisine] = { total: 0, count: 0 };
+      }
+      cuisineRatings[m.cuisine].total += m.rating;
+      cuisineRatings[m.cuisine].count += 1;
+    });
+
+    const cuisinePreferences = Object.entries(cuisineRatings)
+      .map(([cuisine, data]) => ({
+        cuisine,
+        avgRating: data.total / data.count,
+        count: data.count
+      }))
+      .sort((a, b) => b.avgRating - a.avgRating);
+
+    const reviewContext = {
+      highRatedMeals: ratedMeals.filter(m => m.rating >= 4).slice(0, 10),
+      lowRatedMeals: ratedMeals.filter(m => m.rating <= 2).slice(0, 5),
+      cuisinePreferences
+    };
+
     // Get calorie context
     const calorieGoalPref = await req.prisma.userPreferences.findUnique({
       where: { key: 'dailyCalorieGoal' }
@@ -167,6 +203,7 @@ router.post('/chat', async (req, res) => {
       conversation,
       inventory: inventory.map(i => `${i.name} (${i.quantity} ${i.unit})`).join(', '),
       recentMeals: recentMeals.map(m => m.mealName).join(', '),
+      reviewContext,
       calorieContext: {
         dailyGoal: dailyCalorieGoal,
         consumed: consumedCalories,

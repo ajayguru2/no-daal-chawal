@@ -275,8 +275,34 @@ export async function chatSuggestMeals({
   conversation,
   inventory,
   recentMeals,
+  reviewContext,
   calorieContext
 }) {
+  // Build preference insights from review context
+  let preferenceInsights = '';
+  if (reviewContext) {
+    const { highRatedMeals, lowRatedMeals, cuisinePreferences } = reviewContext;
+
+    if (highRatedMeals?.length > 0) {
+      preferenceInsights += `\nFAVORITE MEALS (user rated 4-5 stars): ${highRatedMeals.map(m => m.mealName).join(', ')}`;
+    }
+
+    if (lowRatedMeals?.length > 0) {
+      preferenceInsights += `\nDISLIKED MEALS (user rated 1-2 stars, AVOID similar): ${lowRatedMeals.map(m => m.mealName).join(', ')}`;
+    }
+
+    if (cuisinePreferences?.length > 0) {
+      const topCuisines = cuisinePreferences.filter(c => c.avgRating >= 4);
+      const lowCuisines = cuisinePreferences.filter(c => c.avgRating <= 2);
+      if (topCuisines.length > 0) {
+        preferenceInsights += `\nFAVORITE CUISINES: ${topCuisines.map(c => c.cuisine).join(', ')}`;
+      }
+      if (lowCuisines.length > 0) {
+        preferenceInsights += `\nLESS PREFERRED CUISINES: ${lowCuisines.map(c => c.cuisine).join(', ')}`;
+      }
+    }
+  }
+
   const systemPrompt = `You are a friendly culinary assistant for "No Daal Chawal" - helping a food-loving couple in Bangalore find exciting meals. You HATE boring, repetitive food.
 
 CONTEXT:
@@ -284,6 +310,7 @@ CONTEXT:
 - Available ingredients: ${inventory || 'Not specified'}
 - Recently eaten (avoid these): ${recentMeals || 'None'}
 - Calorie budget: ${calorieContext.remaining} kcal remaining today (goal: ${calorieContext.dailyGoal})
+${preferenceInsights ? `\nUSER PREFERENCES (from past ratings):${preferenceInsights}` : ''}
 
 YOUR PERSONALITY:
 - Friendly and enthusiastic about food
