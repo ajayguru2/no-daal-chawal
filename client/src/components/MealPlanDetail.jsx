@@ -1,3 +1,5 @@
+import Portal from './Portal';
+
 const MEAL_TYPE_ICONS = {
   breakfast: '🌅',
   lunch: '☀️',
@@ -5,10 +7,20 @@ const MEAL_TYPE_ICONS = {
   snack: '🍪'
 };
 
+const COMPLETION_MESSAGES = [
+  'Great choice! Nourishing your body!',
+  'Another healthy meal down!',
+  "You're on fire! Keep it up!",
+  'Meal goals achieved!',
+  'Fueling your success!',
+  'Healthy eating champion!',
+];
+
 export default function MealPlanDetail({
   plan,
   onClose,
   onAteThis,
+  onUndoComplete,
   onReplace,
   onDelete,
   onViewRecipe,
@@ -16,7 +28,8 @@ export default function MealPlanDetail({
 }) {
   if (!plan || !plan.mealData) return null;
 
-  const { mealData, mealType, date } = plan;
+  const { mealData, mealType, date, completed, completedAt } = plan;
+  const completionMessage = COMPLETION_MESSAGES[Math.floor(Math.random() * COMPLETION_MESSAGES.length)];
   const ingredients = Array.isArray(mealData.ingredients) ? mealData.ingredients : [];
 
   const dateLabel = new Date(date).toLocaleDateString('en-IN', {
@@ -26,10 +39,15 @@ export default function MealPlanDetail({
   });
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <Portal>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white p-5 relative">
+        <div className={`text-white p-5 relative ${
+          completed
+            ? 'bg-gradient-to-r from-green-500 to-emerald-400'
+            : 'bg-gradient-to-r from-emerald-600 to-emerald-500'
+        }`}>
           <button
             onClick={onClose}
             className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
@@ -38,6 +56,16 @@ export default function MealPlanDetail({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+
+          {completed && (
+            <div className="flex items-center gap-2 mb-3 bg-white/20 rounded-lg p-2">
+              <span className="text-2xl">✅</span>
+              <div>
+                <div className="font-semibold text-sm">Completed!</div>
+                <div className="text-xs text-white/80">{completionMessage}</div>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center gap-2 text-emerald-100 text-sm mb-1">
             <span>{MEAL_TYPE_ICONS[mealType] || '🍽️'}</span>
@@ -107,42 +135,82 @@ export default function MealPlanDetail({
           )}
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-3 gap-2 pt-2">
-            <button
-              onClick={onViewRecipe}
-              disabled={generatingRecipe}
-              className="flex flex-col items-center gap-1 p-3 border border-emerald-500 text-emerald-600 rounded-xl hover:bg-emerald-50 transition-colors disabled:opacity-50"
-            >
-              {generatingRecipe ? (
-                <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              )}
-              <span className="text-xs font-medium">Recipe</span>
-            </button>
+          {completed ? (
+            <>
+              {/* Completed state actions */}
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+                <div className="text-3xl mb-2">🎉</div>
+                <div className="text-green-700 font-medium">Great job!</div>
+                <div className="text-green-600 text-sm">You followed your meal plan</div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button
+                  onClick={onViewRecipe}
+                  disabled={generatingRecipe}
+                  className="flex flex-col items-center gap-1 p-3 border border-emerald-500 text-emerald-600 rounded-xl hover:bg-emerald-50 transition-colors disabled:opacity-50"
+                >
+                  {generatingRecipe ? (
+                    <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  )}
+                  <span className="text-xs font-medium">Recipe</span>
+                </button>
 
-            <button
-              onClick={onAteThis}
-              className="flex flex-col items-center gap-1 p-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="text-xs font-medium">I Ate This</span>
-            </button>
+                <button
+                  onClick={onUndoComplete}
+                  className="flex flex-col items-center gap-1 p-3 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                  </svg>
+                  <span className="text-xs font-medium">Undo</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Uncompleted state actions */}
+              <div className="grid grid-cols-3 gap-2 pt-2">
+                <button
+                  onClick={onViewRecipe}
+                  disabled={generatingRecipe}
+                  className="flex flex-col items-center gap-1 p-3 border border-emerald-500 text-emerald-600 rounded-xl hover:bg-emerald-50 transition-colors disabled:opacity-50"
+                >
+                  {generatingRecipe ? (
+                    <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  )}
+                  <span className="text-xs font-medium">Recipe</span>
+                </button>
 
-            <button
-              onClick={onReplace}
-              className="flex flex-col items-center gap-1 p-3 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              <span className="text-xs font-medium">Replace</span>
-            </button>
-          </div>
+                <button
+                  onClick={onAteThis}
+                  className="flex flex-col items-center gap-1 p-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-xs font-medium">I Ate This</span>
+                </button>
+
+                <button
+                  onClick={onReplace}
+                  className="flex flex-col items-center gap-1 p-3 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span className="text-xs font-medium">Replace</span>
+                </button>
+              </div>
+            </>
+          )}
 
           {/* Delete Button */}
           <button
@@ -154,5 +222,6 @@ export default function MealPlanDetail({
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

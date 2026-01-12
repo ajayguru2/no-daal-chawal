@@ -33,12 +33,14 @@ model Meal {
 }
 
 model MealPlan {
-  id       String   @id @default(uuid())
-  date     DateTime
-  mealType String
-  mealId   String?
-  meal     Meal?    @relation(fields: [mealId], references: [id])
-  notes    String?
+  id          String    @id @default(uuid())
+  date        DateTime
+  mealType    String
+  mealId      String?
+  meal        Meal?     @relation(fields: [mealId], references: [id])
+  notes       String?
+  completed   Boolean   @default(false)
+  completedAt DateTime?
 }
 
 model MealHistory {

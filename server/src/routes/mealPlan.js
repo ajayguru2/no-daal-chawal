@@ -80,6 +80,40 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
+// Mark meal as completed
+router.post('/:id/complete', async (req, res) => {
+  try {
+    const plan = await req.prisma.mealPlan.update({
+      where: { id: req.params.id },
+      data: {
+        completed: true,
+        completedAt: new Date()
+      },
+      include: { meal: true }
+    });
+    res.json(plan);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Unmark meal as completed
+router.post('/:id/uncomplete', async (req, res) => {
+  try {
+    const plan = await req.prisma.mealPlan.update({
+      where: { id: req.params.id },
+      data: {
+        completed: false,
+        completedAt: null
+      },
+      include: { meal: true }
+    });
+    res.json(plan);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Delete from plan
 router.delete('/:id', async (req, res) => {
   try {

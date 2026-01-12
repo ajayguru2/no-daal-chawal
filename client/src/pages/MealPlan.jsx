@@ -97,18 +97,39 @@ export default function MealPlan() {
   async function handleAteThis() {
     if (!selectedPlan?.mealData) return;
     try {
+      // Log to history
       await history.log({
         mealName: selectedPlan.mealData.name,
         cuisine: selectedPlan.mealData.cuisine,
         mealType: selectedPlan.mealType,
         calories: selectedPlan.mealData.estimatedCalories,
       });
-      await mealPlan.delete(selectedPlan.id);
+      // Mark as complete instead of deleting
+      await mealPlan.markComplete(selectedPlan.id);
       setSelectedPlan(null);
       loadPlans();
     } catch (err) {
       console.error(err);
     }
+  }
+
+  async function handleUndoComplete() {
+    if (!selectedPlan) return;
+    try {
+      await mealPlan.markUncomplete(selectedPlan.id);
+      setSelectedPlan(null);
+      loadPlans();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  // Calculate weekly progress stats
+  function getWeeklyStats() {
+    const totalPlanned = plans.length;
+    const completed = plans.filter(p => p.completed).length;
+    const percentage = totalPlanned > 0 ? Math.round((completed / totalPlanned) * 100) : 0;
+    return { totalPlanned, completed, percentage };
   }
 
   async function handleViewRecipe() {
@@ -186,6 +207,19 @@ export default function MealPlan() {
   }
 
   const weekDates = getWeekDates();
+  const weeklyStats = getWeeklyStats();
+
+  // Get motivational message based on progress
+  function getMotivationalMessage() {
+    const { percentage, completed, totalPlanned } = weeklyStats;
+    if (totalPlanned === 0) return 'Start planning your meals!';
+    if (percentage === 100) return 'Perfect week! You crushed it!';
+    if (percentage >= 75) return 'Almost there! Keep it up!';
+    if (percentage >= 50) return 'Halfway through! Great progress!';
+    if (percentage >= 25) return 'Good start! Keep going!';
+    if (completed > 0) return 'You got this! One meal at a time!';
+    return 'Ready to start your healthy week?';
+  }
 
   if (loading) {
     return <div className="text-center py-12 text-gray-500">Loading...</div>;
@@ -259,6 +293,32 @@ export default function MealPlan() {
         </div>
       </div>
 
+      {/* Weekly Progress */}
+      {weeklyStats.totalPlanned > 0 && (
+        <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl p-4 border border-emerald-100">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">
+                {weeklyStats.percentage === 100 ? '🏆' : weeklyStats.percentage >= 50 ? '🔥' : '💪'}
+              </span>
+              <div>
+                <div className="font-semibold text-gray-900">
+                  {weeklyStats.completed}/{weeklyStats.totalPlanned} meals completed
+                </div>
+                <div className="text-sm text-emerald-600">{getMotivationalMessage()}</div>
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-emerald-600">{weeklyStats.percentage}%</div>
+          </div>
+          <div className="w-full bg-emerald-200 rounded-full h-3 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-emerald-500 to-green-400 rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${weeklyStats.percentage}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Calendar Grid */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Day Headers */}
@@ -303,13 +363,24 @@ export default function MealPlan() {
                   {mealData ? (
                     <button
                       onClick={() => handleMealClick(plan, mealData)}
-                      className="w-full bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-xs text-left hover:ring-2 hover:ring-emerald-300 hover:border-emerald-300 transition-all cursor-pointer"
+                      className={`w-full rounded-lg p-2 text-xs text-left transition-all cursor-pointer relative ${
+                        plan.completed
+                          ? 'bg-gradient-to-br from-emerald-100 to-green-100 border-2 border-emerald-400 hover:ring-2 hover:ring-emerald-400'
+                          : 'bg-emerald-50 border border-emerald-200 hover:ring-2 hover:ring-emerald-300 hover:border-emerald-300'
+                      }`}
                     >
-                      <div className="font-medium text-gray-800 truncate">
+                      {plan.completed && (
+                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className={`font-medium truncate ${plan.completed ? 'text-emerald-700' : 'text-gray-800'}`}>
                         {mealData.name}
                       </div>
-                      <div className="text-gray-500 truncate">
-                        {mealData.prepTime}min
+                      <div className={`truncate ${plan.completed ? 'text-emerald-600' : 'text-gray-500'}`}>
+                        {plan.completed ? 'Done!' : `${mealData.prepTime}min`}
                       </div>
                     </button>
                   ) : (
@@ -342,6 +413,7 @@ export default function MealPlan() {
           plan={selectedPlan}
           onClose={() => setSelectedPlan(null)}
           onAteThis={handleAteThis}
+          onUndoComplete={handleUndoComplete}
           onReplace={handleReplaceMeal}
           onDelete={handleDeletePlan}
           onViewRecipe={handleViewRecipe}
