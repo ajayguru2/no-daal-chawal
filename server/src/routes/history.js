@@ -1,13 +1,16 @@
 import { Router } from 'express';
+import { validate, historySchema, historyUpdateSchema, calendarQuerySchema } from '../validators/index.js';
+import { daysAgo, startOfDay, tomorrow } from '../utils/date.js';
 
 const router = Router();
 
 // Get meals for calendar view (by month)
-router.get('/calendar', async (req, res) => {
+router.get('/calendar', validate(calendarQuerySchema, 'query'), async (req, res, next) => {
   try {
-    const { year, month } = req.query;
-    const y = parseInt(year) || new Date().getFullYear();
-    const m = parseInt(month) || new Date().getMonth();
+    const { year, month } = req.validated.query;
+    const y = year || new Date().getFullYear();
+    // Note: month from query is 1-indexed, but Date constructor expects 0-indexed
+    const m = month ? month - 1 : new Date().getMonth();
 
     const startDate = new Date(y, m, 1);
     const endDate = new Date(y, m + 1, 1);
@@ -34,16 +37,15 @@ router.get('/calendar', async (req, res) => {
 
     res.json(grouped);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Get meal history
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
     const days = parseInt(req.query.days) || 14;
-    const since = new Date();
-    since.setDate(since.getDate() - days);
+    const since = daysAgo(days);
 
     const history = await req.prisma.mealHistory.findMany({
       where: {
@@ -53,16 +55,15 @@ router.get('/', async (req, res) => {
     });
     res.json(history);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Get stats (cuisine variety, repeat frequency)
-router.get('/stats', async (req, res) => {
+router.get('/stats', async (req, res, next) => {
   try {
     const days = parseInt(req.query.days) || 14;
-    const since = new Date();
-    since.setDate(since.getDate() - days);
+    const since = daysAgo(days);
 
     const history = await req.prisma.mealHistory.findMany({
       where: { eatenAt: { gte: since } }
@@ -89,21 +90,19 @@ router.get('/stats', async (req, res) => {
       varietyScore: Object.keys(mealCount).length / (history.length || 1)
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Get today's calorie stats
-router.get('/calories/today', async (req, res) => {
+router.get('/calories/today', async (req, res, next) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const today = startOfDay();
+    const tomorrowDate = tomorrow();
 
     const meals = await req.prisma.mealHistory.findMany({
       where: {
-        eatenAt: { gte: today, lt: tomorrow }
+        eatenAt: { gte: today, lt: tomorrowDate }
       },
       orderBy: { eatenAt: 'asc' }
     });
@@ -121,14 +120,14 @@ router.get('/calories/today', async (req, res) => {
       }))
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Log a meal as eaten
-router.post('/', async (req, res) => {
+router.post('/', validate(historySchema), async (req, res, next) => {
   try {
-    const { mealName, cuisine, mealType, rating, notes, calories } = req.body;
+    const { mealName, cuisine, mealType, rating, notes, calories } = req.validated.body;
     const entry = await req.prisma.mealHistory.create({
       data: {
         mealName,
@@ -141,14 +140,14 @@ router.post('/', async (req, res) => {
     });
     res.status(201).json(entry);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Update meal history entry (e.g., add rating)
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', validate(historyUpdateSchema), async (req, res, next) => {
   try {
-    const { rating, notes } = req.body;
+    const { rating, notes } = req.validated.body;
     const entry = await req.prisma.mealHistory.update({
       where: { id: req.params.id },
       data: {
@@ -158,7 +157,7 @@ router.patch('/:id', async (req, res) => {
     });
     res.json(entry);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 

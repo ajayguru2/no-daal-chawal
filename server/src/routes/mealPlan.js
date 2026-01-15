@@ -1,36 +1,42 @@
 import { Router } from 'express';
 import { generateWeekMealPlan } from '../services/ai.js';
+import {
+  validate,
+  mealPlanSchema,
+  mealPlanQuerySchema,
+  generateWeekSchema
+} from '../validators/index.js';
+import {
+  buildFullAIContext,
+  formatInventoryForPrompt
+} from '../utils/context-builder.js';
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth } from '../utils/date.js';
 
 const router = Router();
 
 // Get meal plan for a week or month
-router.get('/', async (req, res) => {
+router.get('/', validate(mealPlanQuerySchema, 'query'), async (req, res, next) => {
   try {
-    const { week, year, month } = req.query;
+    const { week, year, month } = req.validated.query;
 
     let startDate, endDate;
 
     if (year && month !== undefined) {
       // Get plans for a whole month
-      startDate = new Date(parseInt(year), parseInt(month), 1);
-      endDate = new Date(parseInt(year), parseInt(month) + 1, 1);
+      startDate = startOfMonth(year, month);
+      endDate = endOfMonth(year, month);
     } else {
       // Get plans for a week
       const baseDate = week ? new Date(week) : new Date();
-      const day = baseDate.getDay();
-      const diff = baseDate.getDate() - day + (day === 0 ? -6 : 1);
-      startDate = new Date(baseDate.setDate(diff));
-      startDate.setHours(0, 0, 0, 0);
-
-      endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 7);
+      startDate = startOfWeek(baseDate);
+      endDate = endOfWeek(baseDate);
     }
 
     const plans = await req.prisma.mealPlan.findMany({
       where: {
         date: {
           gte: startDate,
-          lt: endDate
+          lte: endDate
         }
       },
       include: { meal: true },
@@ -39,14 +45,14 @@ router.get('/', async (req, res) => {
 
     res.json(plans);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Add meal to plan
-router.post('/', async (req, res) => {
+router.post('/', validate(mealPlanSchema), async (req, res, next) => {
   try {
-    const { date, mealType, mealId, notes } = req.body;
+    const { date, mealType, mealId, notes } = req.validated.body;
     const plan = await req.prisma.mealPlan.create({
       data: {
         date: new Date(date),
@@ -58,12 +64,12 @@ router.post('/', async (req, res) => {
     });
     res.status(201).json(plan);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Update meal plan
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', async (req, res, next) => {
   try {
     const { mealId, notes } = req.body;
     const plan = await req.prisma.mealPlan.update({
@@ -76,12 +82,12 @@ router.patch('/:id', async (req, res) => {
     });
     res.json(plan);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Mark meal as completed
-router.post('/:id/complete', async (req, res) => {
+router.post('/:id/complete', async (req, res, next) => {
   try {
     const plan = await req.prisma.mealPlan.update({
       where: { id: req.params.id },
@@ -93,12 +99,12 @@ router.post('/:id/complete', async (req, res) => {
     });
     res.json(plan);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Unmark meal as completed
-router.post('/:id/uncomplete', async (req, res) => {
+router.post('/:id/uncomplete', async (req, res, next) => {
   try {
     const plan = await req.prisma.mealPlan.update({
       where: { id: req.params.id },
@@ -110,83 +116,35 @@ router.post('/:id/uncomplete', async (req, res) => {
     });
     res.json(plan);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Delete from plan
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req, res, next) => {
   try {
     await req.prisma.mealPlan.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // AI Generate entire week's meal plan
-router.post('/generate-week', async (req, res) => {
+router.post('/generate-week', validate(generateWeekSchema), async (req, res, next) => {
   try {
-    const { weekStart } = req.body;
+    const { weekStart } = req.validated.body;
 
-    // Get context data
-    const inventory = await req.prisma.inventoryItem.findMany();
-
-    const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-    const recentMeals = await req.prisma.mealHistory.findMany({
-      where: { eatenAt: { gte: twoWeeksAgo } },
-      orderBy: { eatenAt: 'desc' }
-    });
-
-    // Get review context
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const ratedMeals = await req.prisma.mealHistory.findMany({
-      where: {
-        eatenAt: { gte: thirtyDaysAgo },
-        rating: { not: null }
-      },
-      orderBy: { rating: 'desc' }
-    });
-
-    const cuisineRatings = {};
-    ratedMeals.forEach(m => {
-      if (!cuisineRatings[m.cuisine]) {
-        cuisineRatings[m.cuisine] = { total: 0, count: 0 };
-      }
-      cuisineRatings[m.cuisine].total += m.rating;
-      cuisineRatings[m.cuisine].count += 1;
-    });
-
-    const cuisinePreferences = Object.entries(cuisineRatings)
-      .map(([cuisine, data]) => ({
-        cuisine,
-        avgRating: data.total / data.count,
-        count: data.count
-      }))
-      .sort((a, b) => b.avgRating - a.avgRating);
-
-    const reviewContext = {
-      highRatedMeals: ratedMeals.filter(m => m.rating >= 4).slice(0, 10),
-      lowRatedMeals: ratedMeals.filter(m => m.rating <= 2).slice(0, 5),
-      cuisinePreferences
-    };
-
-    // Get calorie goal
-    const calorieGoalPref = await req.prisma.userPreferences.findUnique({
-      where: { key: 'dailyCalorieGoal' }
-    });
-    const dailyCalorieGoal = calorieGoalPref ? parseInt(calorieGoalPref.value) : 2000;
+    // Get context using shared utility (eliminates ~60 lines of duplicate code)
+    const context = await buildFullAIContext(req.prisma);
 
     // Generate week plan
     const result = await generateWeekMealPlan({
       weekStart,
-      inventory: inventory.map(i => `${i.name} (${i.quantity} ${i.unit})`).join(', '),
-      recentMeals: recentMeals.map(m => m.mealName).join(', '),
-      reviewContext,
-      calorieContext: { dailyGoal: dailyCalorieGoal }
+      inventory: context.inventoryFormatted,
+      recentMeals: context.recentMealNames.join(', '),
+      reviewContext: context.reviewContext,
+      calorieContext: { dailyGoal: context.calorieContext.dailyGoal }
     });
 
     // Calculate week dates
@@ -227,8 +185,7 @@ router.post('/generate-week', async (req, res) => {
       createdPlans: createdPlans.length
     });
   } catch (error) {
-    console.error('Generate week error:', error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 

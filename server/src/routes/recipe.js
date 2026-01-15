@@ -1,16 +1,24 @@
 import { Router } from 'express';
 import { generateRecipe } from '../services/ai.js';
+import { validate, generateRecipeSchema } from '../validators/index.js';
+import { safeJsonParse } from '../utils/json.js';
 
 const router = Router();
 
-// Generate and save a recipe for a meal
-router.post('/generate', async (req, res) => {
-  try {
-    const { meal } = req.body;
+// Helper to safely parse JSON fields in recipes
+function parseRecipeJson(recipe) {
+  return {
+    ...recipe,
+    ingredients: safeJsonParse(recipe.ingredients, []),
+    instructions: safeJsonParse(recipe.instructions, []),
+    tips: recipe.tips ? safeJsonParse(recipe.tips, []) : []
+  };
+}
 
-    if (!meal || !meal.name) {
-      return res.status(400).json({ error: 'Meal data required' });
-    }
+// Generate and save a recipe for a meal
+router.post('/generate', validate(generateRecipeSchema), async (req, res, next) => {
+  try {
+    const { meal } = req.validated.body;
 
     // Generate recipe using AI
     const recipeData = await generateRecipe(meal);
@@ -39,73 +47,35 @@ router.post('/generate', async (req, res) => {
       tips: recipeData.tips
     });
   } catch (error) {
-    console.error('Recipe generation error:', error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Get all saved recipes
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
     const recipes = await req.prisma.recipe.findMany({
       orderBy: { createdAt: 'desc' }
     });
 
-    // Parse JSON fields
-    const parsed = recipes.map(r => ({
-      ...r,
-      ingredients: JSON.parse(r.ingredients),
-      instructions: JSON.parse(r.instructions),
-      tips: r.tips ? JSON.parse(r.tips) : []
-    }));
-
+    const parsed = recipes.map(parseRecipeJson);
     res.json(parsed);
   } catch (error) {
-    console.error('Error fetching recipes:', error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
-// Get a single recipe by ID
-router.get('/:id', async (req, res) => {
-  try {
-    const recipe = await req.prisma.recipe.findUnique({
-      where: { id: req.params.id }
-    });
-
-    if (!recipe) {
-      return res.status(404).json({ error: 'Recipe not found' });
-    }
-
-    res.json({
-      ...recipe,
-      ingredients: JSON.parse(recipe.ingredients),
-      instructions: JSON.parse(recipe.instructions),
-      tips: recipe.tips ? JSON.parse(recipe.tips) : []
-    });
-  } catch (error) {
-    console.error('Error fetching recipe:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Delete a recipe
-router.delete('/:id', async (req, res) => {
-  try {
-    await req.prisma.recipe.delete({
-      where: { id: req.params.id }
-    });
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting recipe:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Search recipes by name or cuisine
-router.get('/search/:query', async (req, res) => {
+// Search recipes by name or cuisine (must be before /:id to avoid conflicts)
+router.get('/search/:query', async (req, res, next) => {
   try {
     const { query } = req.params;
+    if (!query || query.length < 2) {
+      return res.status(400).json({
+        error: 'Search query must be at least 2 characters',
+        code: 'VALIDATION_ERROR'
+      });
+    }
+
     const recipes = await req.prisma.recipe.findMany({
       where: {
         OR: [
@@ -116,17 +86,39 @@ router.get('/search/:query', async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    const parsed = recipes.map(r => ({
-      ...r,
-      ingredients: JSON.parse(r.ingredients),
-      instructions: JSON.parse(r.instructions),
-      tips: r.tips ? JSON.parse(r.tips) : []
-    }));
-
+    const parsed = recipes.map(parseRecipeJson);
     res.json(parsed);
   } catch (error) {
-    console.error('Error searching recipes:', error);
-    res.status(500).json({ error: error.message });
+    next(error);
+  }
+});
+
+// Get a single recipe by ID
+router.get('/:id', async (req, res, next) => {
+  try {
+    const recipe = await req.prisma.recipe.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!recipe) {
+      return res.status(404).json({ error: 'Recipe not found', code: 'NOT_FOUND' });
+    }
+
+    res.json(parseRecipeJson(recipe));
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete a recipe
+router.delete('/:id', async (req, res, next) => {
+  try {
+    await req.prisma.recipe.delete({
+      where: { id: req.params.id }
+    });
+    res.status(204).send();
+  } catch (error) {
+    next(error);
   }
 });
 

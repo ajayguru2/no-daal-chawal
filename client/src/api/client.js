@@ -1,21 +1,81 @@
 const API_BASE = '/api';
+const DEFAULT_TIMEOUT = 30000; // 30 seconds
 
-async function request(endpoint, options = {}) {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'API request failed');
+/**
+ * Custom API error class with status code and error code
+ */
+export class APIError extends Error {
+  constructor(message, status, code) {
+    super(message);
+    this.name = 'APIError';
+    this.status = status;
+    this.code = code;
   }
+}
 
-  if (response.status === 204) return null;
-  return response.json();
+/**
+ * Make an API request with timeout and error handling
+ */
+async function request(endpoint, options = {}) {
+  const { timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options;
+
+  // Create abort controller for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...fetchOptions.headers,
+      },
+      signal: controller.signal,
+      ...fetchOptions,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new APIError(
+        error.error || error.message || `Request failed with status ${response.status}`,
+        response.status,
+        error.code || 'API_ERROR'
+      );
+    }
+
+    if (response.status === 204) return null;
+    return response.json();
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new APIError('Request timed out', 408, 'TIMEOUT');
+    }
+    if (err instanceof APIError) throw err;
+    throw new APIError(err.message || 'Network error', 0, 'NETWORK_ERROR');
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Check if an error is a specific API error type
+ */
+export function isAPIError(error, code) {
+  return error instanceof APIError && (code ? error.code === code : true);
+}
+
+/**
+ * Get user-friendly error message
+ */
+export function getErrorMessage(error) {
+  if (error instanceof APIError) {
+    if (error.code === 'TIMEOUT') return 'Request timed out. Please try again.';
+    if (error.code === 'NETWORK_ERROR') return 'Network error. Please check your connection.';
+    if (error.code === 'RATE_LIMIT') return 'Too many requests. Please wait a moment.';
+    if (error.status === 401) return 'Please log in to continue.';
+    if (error.status === 403) return 'You do not have permission to do this.';
+    if (error.status === 404) return 'The requested resource was not found.';
+    return error.message;
+  }
+  return error?.message || 'An unexpected error occurred';
 }
 
 // Inventory
@@ -42,6 +102,7 @@ export const meals = {
 // Suggestions
 export const suggestions = {
   get: (params) => request('/suggest', { method: 'POST', body: JSON.stringify(params) }),
+  chat: (params) => request('/suggest/chat', { method: 'POST', body: JSON.stringify(params) }),
 };
 
 // History

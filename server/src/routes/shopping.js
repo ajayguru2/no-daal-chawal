@@ -1,45 +1,48 @@
 import { Router } from 'express';
+import { validate, shoppingItemSchema, shoppingUpdateSchema } from '../validators/index.js';
+import { startOfWeek, endOfWeek } from '../utils/date.js';
+import { z } from 'zod';
 
 const router = Router();
 
+// Schema for generate endpoint
+const generateSchema = z.object({
+  week: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+});
+
 // Get shopping list
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
     const items = await req.prisma.shoppingItem.findMany({
       orderBy: [{ isPurchased: 'asc' }, { category: 'asc' }]
     });
     res.json(items);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Generate shopping list from meal plan
-router.post('/generate', async (req, res) => {
+router.post('/generate', validate(generateSchema), async (req, res, next) => {
   try {
-    const { week } = req.body;
-    const startDate = week ? new Date(week) : new Date();
+    const { week } = req.validated.body;
+    const baseDate = week ? new Date(week) : new Date();
 
-    // Get week start
-    const day = startDate.getDay();
-    const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
-    const weekStart = new Date(startDate.setDate(diff));
-    weekStart.setHours(0, 0, 0, 0);
-
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 7);
+    const weekStart = startOfWeek(baseDate);
+    const weekEnd = endOfWeek(baseDate);
 
     // Get meal plans - look for plans with notes (meal data stored as JSON)
     const plans = await req.prisma.mealPlan.findMany({
       where: {
-        date: { gte: weekStart, lt: weekEnd },
+        date: { gte: weekStart, lte: weekEnd },
         notes: { not: null }
       }
     });
 
     if (plans.length === 0) {
       return res.status(400).json({
-        error: 'No meals planned for this week. Add meals to your meal plan first.'
+        error: 'No meals planned for this week. Add meals to your meal plan first.',
+        code: 'NO_MEALS_PLANNED'
       });
     }
 
@@ -118,14 +121,14 @@ router.post('/generate', async (req, res) => {
 
     res.json(allItems);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Add item manually
-router.post('/', async (req, res) => {
+router.post('/', validate(shoppingItemSchema), async (req, res, next) => {
   try {
-    const { name, quantity, unit, category } = req.body;
+    const { name, quantity, unit, category } = req.validated.body;
     const item = await req.prisma.shoppingItem.create({
       data: {
         name,
@@ -136,14 +139,14 @@ router.post('/', async (req, res) => {
     });
     res.status(201).json(item);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
-// Mark as purchased
-router.patch('/:id', async (req, res) => {
+// Mark as purchased or update quantity
+router.patch('/:id', validate(shoppingUpdateSchema), async (req, res, next) => {
   try {
-    const { isPurchased, quantity } = req.body;
+    const { isPurchased, quantity } = req.validated.body;
     const item = await req.prisma.shoppingItem.update({
       where: { id: req.params.id },
       data: {
@@ -153,29 +156,29 @@ router.patch('/:id', async (req, res) => {
     });
     res.json(item);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Delete item
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req, res, next) => {
   try {
     await req.prisma.shoppingItem.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Clear purchased items
-router.delete('/clear/purchased', async (req, res) => {
+router.delete('/clear/purchased', async (req, res, next) => {
   try {
     await req.prisma.shoppingItem.deleteMany({
       where: { isPurchased: true }
     });
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 

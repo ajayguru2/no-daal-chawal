@@ -1,9 +1,12 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { PrismaClient } from '@prisma/client';
+import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,11 +25,55 @@ import recipeRoutes from './routes/recipe.js';
 dotenv.config();
 
 const app = express();
-const prisma = new PrismaClient();
+export const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
-app.use(express.json());
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false
+}));
+
+// CORS configuration
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:5173', 'http://localhost:3001'];
+
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      }
+    : true,
+  credentials: true
+}));
+
+// Rate limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // 200 requests per window
+  message: { error: 'Too many requests, please try again later', code: 'RATE_LIMIT' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 15, // 15 AI requests per minute
+  message: { error: 'Too many AI requests, please slow down', code: 'AI_RATE_LIMIT' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use('/api/', apiLimiter);
+app.use('/api/suggest', aiLimiter);
+app.use('/api/recipes/generate', aiLimiter);
+app.use('/api/meal-plan/generate-week', aiLimiter);
+
+app.use(express.json({ limit: '1mb' }));
 
 // Make prisma available to routes
 app.use((req, res, next) => {
@@ -51,6 +98,12 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'No Daal Chawal API is running' });
 });
 
+// 404 handler for unknown API routes (must be before static files)
+app.use('/api/*', notFoundHandler);
+
+// Global error handler
+app.use(errorHandler);
+
 // Serve static files from client build in production
 const clientBuildPath = path.join(__dirname, '../../client/dist');
 app.use(express.static(clientBuildPath));
@@ -65,7 +118,11 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 // Graceful shutdown
-process.on('SIGINT', async () => {
+async function shutdown(signal) {
+  console.log(`\n${signal} received. Shutting down gracefully...`);
   await prisma.$disconnect();
   process.exit(0);
-});
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
