@@ -26,6 +26,7 @@ export default function MealPlan() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [currentRecipe, setCurrentRecipe] = useState(null);
   const [generatingRecipe, setGeneratingRecipe] = useState(false);
+  const [markingComplete, setMarkingComplete] = useState(false);
 
   useEffect(() => {
     loadPlans();
@@ -67,6 +68,12 @@ export default function MealPlan() {
     if (!showChat) return;
 
     try {
+      // Check for existing plan in this slot and delete it first to prevent duplicates
+      const existingPlan = getPlanForSlot(showChat.date, showChat.mealType);
+      if (existingPlan) {
+        await mealPlan.delete(existingPlan.id);
+      }
+
       // Add to plan (don't log to history - that happens when meal is eaten)
       await mealPlan.add({
         date: showChat.date.toISOString(),
@@ -95,7 +102,8 @@ export default function MealPlan() {
   }
 
   async function handleAteThis() {
-    if (!selectedPlan?.mealData) return;
+    if (!selectedPlan?.mealData || markingComplete) return;
+    setMarkingComplete(true);
     try {
       // Log to history
       await history.log({
@@ -110,6 +118,8 @@ export default function MealPlan() {
       loadPlans();
     } catch (err) {
       console.error(err);
+    } finally {
+      setMarkingComplete(false);
     }
   }
 
@@ -418,6 +428,7 @@ export default function MealPlan() {
           onDelete={handleDeletePlan}
           onViewRecipe={handleViewRecipe}
           generatingRecipe={generatingRecipe}
+          markingComplete={markingComplete}
         />
       )}
 

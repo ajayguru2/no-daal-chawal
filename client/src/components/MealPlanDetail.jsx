@@ -24,7 +24,8 @@ export default function MealPlanDetail({
   onReplace,
   onDelete,
   onViewRecipe,
-  generatingRecipe
+  generatingRecipe,
+  markingComplete
 }) {
   if (!plan || !plan.mealData) return null;
 
@@ -191,12 +192,17 @@ export default function MealPlanDetail({
 
                 <button
                   onClick={onAteThis}
-                  className="flex flex-col items-center gap-1 p-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors"
+                  disabled={markingComplete}
+                  className="flex flex-col items-center gap-1 p-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-xs font-medium">I Ate This</span>
+                  {markingComplete ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  <span className="text-xs font-medium">{markingComplete ? 'Saving...' : 'I Ate This'}</span>
                 </button>
 
                 <button
