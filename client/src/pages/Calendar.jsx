@@ -45,10 +45,12 @@ export default function Calendar() {
   async function loadCalendarData() {
     setLoading(true);
     try {
+      // Note: Server expects 1-indexed months (1-12), but JS getMonth() returns 0-indexed (0-11)
+      const apiMonth = month + 1;
       const [calendarData, statsData, planData] = await Promise.all([
-        history.getCalendar(year, month),
+        history.getCalendar(year, apiMonth),
         history.getStats(30),
-        mealPlan.getMonth(year, month)
+        mealPlan.getMonth(year, apiMonth)
       ]);
 
       setMealsByDate(calendarData);
