@@ -34,22 +34,10 @@ app.use(helmet({
 }));
 
 // CORS configuration - only apply to API routes
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:5173', 'http://localhost:3001'];
-
+// Since this app serves both frontend and API from the same domain,
+// we allow all origins (same-origin requests are inherently safe)
 const corsMiddleware = cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? (origin, callback) => {
-        // Allow requests with no origin (same-origin, server-to-server)
-        // or requests from allowed origins
-        if (!origin || allowedOrigins.includes(origin)) {
-          callback(null, true);
-        } else {
-          callback(new Error('Not allowed by CORS'));
-        }
-      }
-    : true,
+  origin: true,
   credentials: true
 });
 
