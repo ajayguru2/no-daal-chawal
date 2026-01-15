@@ -33,14 +33,16 @@ app.use(helmet({
   contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false
 }));
 
-// CORS configuration
+// CORS configuration - only apply to API routes
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
   : ['http://localhost:5173', 'http://localhost:3001'];
 
-app.use(cors({
+const corsMiddleware = cors({
   origin: process.env.NODE_ENV === 'production'
     ? (origin, callback) => {
+        // Allow requests with no origin (same-origin, server-to-server)
+        // or requests from allowed origins
         if (!origin || allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
@@ -49,7 +51,10 @@ app.use(cors({
       }
     : true,
   credentials: true
-}));
+});
+
+// Only apply CORS to API routes (static files don't need CORS)
+app.use('/api', corsMiddleware);
 
 // Rate limiting
 const apiLimiter = rateLimit({
