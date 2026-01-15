@@ -54,9 +54,12 @@ export default function Calendar() {
       setMealsByDate(calendarData);
       setStats(statsData);
 
-      // Group planned meals by date
+      // Group planned meals by date (filter out completed ones to avoid duplicates with eaten meals)
       const plannedMap = {};
       for (const plan of planData) {
+        // Skip completed meals - they're already shown in the eaten section
+        if (plan.completed) continue;
+
         const dateKey = plan.date.split('T')[0];
         if (!plannedMap[dateKey]) {
           plannedMap[dateKey] = [];
