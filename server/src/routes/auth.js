@@ -10,20 +10,20 @@ router.post('/verify', validate(authSchema), (req, res) => {
 
   if (!appPin) {
     // No PIN configured, allow access
-    return res.json({ valid: true });
+    return res.json({ success: true });
   }
 
   if (pin === appPin) {
-    return res.json({ valid: true });
+    return res.json({ success: true });
   }
 
-  res.status(401).json({ valid: false, error: 'Invalid PIN', code: 'AUTH_ERROR' });
+  res.status(401).json({ success: false, error: 'Invalid PIN', code: 'AUTH_ERROR' });
 });
 
 // Check if PIN is required
 router.get('/status', (req, res) => {
   const appPin = process.env.APP_PIN;
-  res.json({ pinRequired: !!appPin });
+  res.json({ pinEnabled: !!appPin });
 });
 
 export default router;

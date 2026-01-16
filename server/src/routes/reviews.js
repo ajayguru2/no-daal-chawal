@@ -27,6 +27,10 @@ router.get('/unrated-today', async (req, res, next) => {
 // Get day review
 router.get('/day/:date', async (req, res, next) => {
   try {
+    // Validate date format is YYYY-MM-DD
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(req.params.date)) {
+      return res.status(400).json({ error: 'Invalid date format', code: 'VALIDATION_ERROR' });
+    }
     const date = new Date(req.params.date);
     if (isNaN(date.getTime())) {
       return res.status(400).json({ error: 'Invalid date format', code: 'VALIDATION_ERROR' });
@@ -36,6 +40,9 @@ router.get('/day/:date', async (req, res, next) => {
     const review = await req.prisma.dayReview.findUnique({
       where: { date }
     });
+    if (!review) {
+      return res.status(404).json({ error: 'Review not found', code: 'NOT_FOUND' });
+    }
     res.json(review);
   } catch (error) {
     next(error);
@@ -75,6 +82,9 @@ router.get('/week/:weekStart', async (req, res, next) => {
     const review = await req.prisma.weekReview.findUnique({
       where: { weekStart }
     });
+    if (!review) {
+      return res.status(404).json({ error: 'Review not found', code: 'NOT_FOUND' });
+    }
     res.json(review);
   } catch (error) {
     next(error);

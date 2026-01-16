@@ -17,7 +17,10 @@ router.get('/:key', async (req, res, next) => {
     const pref = await req.prisma.userPreferences.findUnique({
       where: { key }
     });
-    res.json({ value: pref?.value || null });
+    if (!pref) {
+      return res.status(404).json({ error: 'Preference not found', code: 'NOT_FOUND' });
+    }
+    res.json(pref);
   } catch (error) {
     next(error);
   }
@@ -50,9 +53,7 @@ router.put('/:key', validate(preferenceSchema), async (req, res, next) => {
 router.get('/', async (req, res, next) => {
   try {
     const prefs = await req.prisma.userPreferences.findMany();
-    const result = {};
-    prefs.forEach(p => { result[p.key] = p.value; });
-    res.json(result);
+    res.json(prefs);
   } catch (error) {
     next(error);
   }

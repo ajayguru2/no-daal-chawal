@@ -116,8 +116,8 @@ export function errorHandler(err, req, res, next) {
     });
   }
 
-  // Handle Prisma errors
-  if (err.name === 'PrismaClientKnownRequestError') {
+  // Handle Prisma errors (check by name or by error code pattern)
+  if (err.name === 'PrismaClientKnownRequestError' || (err.code && typeof err.code === 'string' && err.code.startsWith('P'))) {
     const prismaError = handlePrismaError(err);
     if (prismaError) {
       return res.status(prismaError.statusCode).json({
