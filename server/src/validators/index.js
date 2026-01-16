@@ -3,8 +3,25 @@ import { z } from 'zod';
 // Enums
 export const MealTypeEnum = z.enum(['breakfast', 'lunch', 'dinner', 'snack']);
 export const CuisineEnum = z.enum([
-  'indian', 'chinese', 'italian', 'mexican', 'thai',
-  'japanese', 'american', 'mediterranean', 'korean', 'other'
+  // Indian regional
+  'indian', 'south_indian', 'north_indian', 'gujarati', 'punjabi', 'bengali',
+  'maharashtrian', 'kerala', 'hyderabadi', 'rajasthani', 'goan',
+  // Asian
+  'chinese', 'japanese', 'korean', 'thai', 'vietnamese', 'indonesian',
+  'malaysian', 'singaporean', 'filipino', 'burmese', 'cambodian', 'taiwanese',
+  // European
+  'italian', 'french', 'spanish', 'greek', 'german', 'british', 'irish',
+  'portuguese', 'swiss', 'belgian', 'dutch', 'scandinavian', 'polish',
+  'russian', 'hungarian', 'austrian', 'continental', 'european',
+  // Middle Eastern & African
+  'middle_eastern', 'turkish', 'lebanese', 'persian', 'israeli', 'moroccan',
+  'egyptian', 'ethiopian', 'african', 'arab',
+  // Americas
+  'american', 'mexican', 'brazilian', 'peruvian', 'argentinian', 'cuban',
+  'caribbean', 'cajun', 'tex_mex', 'latin_american', 'colombian',
+  // Other
+  'mediterranean', 'fusion', 'healthy', 'vegan', 'vegetarian', 'street_food',
+  'fast_food', 'comfort_food', 'seafood', 'bbq', 'other'
 ]);
 export const InventoryCategoryEnum = z.enum([
   'grains', 'spices', 'vegetables', 'dairy', 'proteins', 'fruits', 'others'

@@ -76,7 +76,7 @@ export default function MealPlan() {
 
       // Add to plan (don't log to history - that happens when meal is eaten)
       await mealPlan.add({
-        date: showChat.date.toISOString(),
+        date: showChat.date.toISOString().split('T')[0],
         mealType: showChat.mealType,
         notes: JSON.stringify(meal),
       });

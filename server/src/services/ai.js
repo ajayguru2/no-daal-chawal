@@ -123,12 +123,20 @@ Suggest 3 diverse meal options. For each meal provide:
 6. Why this meal fits their mood/time
 7. A one-line description that makes it sound delicious
 
+VALID CUISINES (use ONLY these exact values):
+indian, south_indian, north_indian, gujarati, punjabi, bengali, maharashtrian, kerala, hyderabadi, rajasthani, goan,
+chinese, japanese, korean, thai, vietnamese, indonesian, malaysian, singaporean, filipino, burmese, cambodian, taiwanese,
+italian, french, spanish, greek, german, british, irish, portuguese, swiss, belgian, dutch, scandinavian, polish, russian, hungarian, austrian, continental, european,
+middle_eastern, turkish, lebanese, persian, israeli, moroccan, egyptian, ethiopian, african, arab,
+american, mexican, brazilian, peruvian, argentinian, cuban, caribbean, cajun, tex_mex, latin_american, colombian,
+mediterranean, fusion, healthy, vegan, vegetarian, street_food, fast_food, comfort_food, seafood, bbq, other
+
 Respond in this exact JSON format:
 {
   "suggestions": [
     {
       "name": "Meal name",
-      "cuisine": "north_indian|south_indian|continental|chinese|mediterranean|other",
+      "cuisine": "one of the valid cuisines above",
       "mealType": "breakfast|lunch|dinner|snack",
       "prepTime": 30,
       "estimatedCalories": 450,
@@ -172,7 +180,7 @@ function getFallbackSuggestions(mood, timeAvailable, mealType) {
   const quickMeals = [
     {
       name: 'Masala Maggi with Vegetables',
-      cuisine: 'indian_fusion',
+      cuisine: 'fusion',
       mealType: 'snack',
       prepTime: 15,
       estimatedCalories: 350,
@@ -318,6 +326,14 @@ YOUR PERSONALITY:
 - Give helpful suggestions based on what they say
 - Be concise - 1-2 sentences of chat, then suggestions
 
+VALID CUISINES (use ONLY these exact values):
+indian, south_indian, north_indian, gujarati, punjabi, bengali, maharashtrian, kerala, hyderabadi, rajasthani, goan,
+chinese, japanese, korean, thai, vietnamese, indonesian, malaysian, singaporean, filipino, burmese, cambodian, taiwanese,
+italian, french, spanish, greek, german, british, irish, portuguese, swiss, belgian, dutch, scandinavian, polish, russian, hungarian, austrian, continental, european,
+middle_eastern, turkish, lebanese, persian, israeli, moroccan, egyptian, ethiopian, african, arab,
+american, mexican, brazilian, peruvian, argentinian, cuban, caribbean, cajun, tex_mex, latin_american, colombian,
+mediterranean, fusion, healthy, vegan, vegetarian, street_food, fast_food, comfort_food, seafood, bbq, other
+
 RESPONSE FORMAT:
 Always respond with valid JSON:
 {
@@ -325,7 +341,7 @@ Always respond with valid JSON:
   "suggestions": [
     {
       "name": "Dish Name",
-      "cuisine": "north_indian|south_indian|chinese|continental|mediterranean|other",
+      "cuisine": "one of the valid cuisines above",
       "mealType": "${mealType}",
       "prepTime": 30,
       "estimatedCalories": 450,
@@ -417,6 +433,14 @@ REQUIREMENTS:
 6. Include a mix of vegetarian and non-vegetarian options
 7. Consider Indian home cooking reality - practical portions and prep times
 
+VALID CUISINES (use ONLY these exact values):
+indian, south_indian, north_indian, gujarati, punjabi, bengali, maharashtrian, kerala, hyderabadi, rajasthani, goan,
+chinese, japanese, korean, thai, vietnamese, indonesian, malaysian, singaporean, filipino, burmese, cambodian, taiwanese,
+italian, french, spanish, greek, german, british, irish, portuguese, swiss, belgian, dutch, scandinavian, polish, russian, hungarian, austrian, continental, european,
+middle_eastern, turkish, lebanese, persian, israeli, moroccan, egyptian, ethiopian, african, arab,
+american, mexican, brazilian, peruvian, argentinian, cuban, caribbean, cajun, tex_mex, latin_american, colombian,
+mediterranean, fusion, healthy, vegan, vegetarian, street_food, fast_food, comfort_food, seafood, bbq, other
+
 Respond in this exact JSON format:
 {
   "weekPlan": [
@@ -426,7 +450,7 @@ Respond in this exact JSON format:
       "meals": {
         "breakfast": {
           "name": "Dish name",
-          "cuisine": "north_indian|south_indian|chinese|continental|mediterranean|other",
+          "cuisine": "one of the valid cuisines above",
           "prepTime": 20,
           "estimatedCalories": 350,
           "description": "Brief appetizing description",
