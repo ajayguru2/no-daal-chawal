@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { recipes } from '../api/client';
 import RecipeDisplay from '../components/RecipeDisplay';
+import { useDebounce } from '../hooks/useDebounce';
 
 const CUISINE_LABELS = {
   north_indian: 'North Indian',
@@ -45,17 +46,24 @@ export default function Recipes() {
     }
   }
 
-  // Filter recipes
-  const filteredRecipes = recipeList.filter(recipe => {
-    const matchesSearch = !searchQuery ||
-      recipe.mealName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      recipe.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCuisine = !filterCuisine || recipe.cuisine === filterCuisine;
-    return matchesSearch && matchesCuisine;
-  });
+  // Debounce search query to avoid filtering on every keystroke
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // Get unique cuisines for filter
-  const availableCuisines = [...new Set(recipeList.map(r => r.cuisine))];
+  // Memoize filtered recipes to avoid recalculating on every render
+  const filteredRecipes = useMemo(() => {
+    return recipeList.filter(recipe => {
+      const matchesSearch = !debouncedSearchQuery ||
+        recipe.mealName.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+        recipe.description?.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
+      const matchesCuisine = !filterCuisine || recipe.cuisine === filterCuisine;
+      return matchesSearch && matchesCuisine;
+    });
+  }, [recipeList, debouncedSearchQuery, filterCuisine]);
+
+  // Memoize available cuisines
+  const availableCuisines = useMemo(() => {
+    return [...new Set(recipeList.map(r => r.cuisine))];
+  }, [recipeList]);
 
   if (loading) {
     return (

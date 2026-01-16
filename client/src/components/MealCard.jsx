@@ -1,3 +1,5 @@
+import { memo, useMemo } from 'react';
+
 const CUISINE_LABELS = {
   north_indian: 'North Indian',
   south_indian: 'South Indian',
@@ -8,10 +10,13 @@ const CUISINE_LABELS = {
   other: 'Other',
 };
 
-export default function MealCard({ meal, onAteThis, onGetRecipe, showActions = true }) {
-  const ingredients = typeof meal.ingredients === 'string'
-    ? JSON.parse(meal.ingredients)
-    : meal.ingredients;
+const MealCard = memo(function MealCard({ meal, onAteThis, onGetRecipe, showActions = true }) {
+  // Memoize ingredients parsing to avoid re-parsing on every render
+  const ingredients = useMemo(() => {
+    return typeof meal.ingredients === 'string'
+      ? JSON.parse(meal.ingredients)
+      : meal.ingredients;
+  }, [meal.ingredients]);
 
   const hasCalorieWarning = meal.calorieWarning;
 
@@ -106,4 +111,6 @@ export default function MealCard({ meal, onAteThis, onGetRecipe, showActions = t
       )}
     </div>
   );
-}
+});
+
+export default MealCard;

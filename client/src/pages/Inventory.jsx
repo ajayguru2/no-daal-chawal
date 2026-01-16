@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { inventory } from '../api/client';
 
 const CATEGORIES = [
@@ -67,20 +67,36 @@ export default function Inventory() {
   }
 
   async function handleDelete(id) {
+    // Optimistic delete for instant feedback
+    const deletedItem = items.find(i => i.id === id);
+    setItems(prev => prev.filter(i => i.id !== id));
+
     try {
       await inventory.delete(id);
-      loadItems();
     } catch (err) {
+      // Revert on error
+      setItems(prev => [...prev, deletedItem].sort((a, b) => a.name.localeCompare(b.name)));
       console.error(err);
     }
   }
 
+  // Optimistic update for instant feedback
   async function updateQuantity(item, delta) {
     const newQty = Math.max(0, item.quantity + delta);
+    const oldQty = item.quantity;
+
+    // Optimistically update the UI immediately
+    setItems(prev => prev.map(i =>
+      i.id === item.id ? { ...i, quantity: newQty } : i
+    ));
+
     try {
       await inventory.update(item.id, { quantity: newQty });
-      loadItems();
     } catch (err) {
+      // Revert on error
+      setItems(prev => prev.map(i =>
+        i.id === item.id ? { ...i, quantity: oldQty } : i
+      ));
       console.error(err);
     }
   }
@@ -109,19 +125,24 @@ export default function Inventory() {
     setShowAdd(true);
   }
 
-  const filteredItems = filter
-    ? items.filter((i) => i.category === filter)
-    : items;
+  // Memoize filtered items
+  const filteredItems = useMemo(() => {
+    return filter ? items.filter((i) => i.category === filter) : items;
+  }, [items, filter]);
 
-  const groupedItems = filteredItems.reduce((acc, item) => {
-    if (!acc[item.category]) acc[item.category] = [];
-    acc[item.category].push(item);
-    return acc;
-  }, {});
+  // Memoize grouped items
+  const groupedItems = useMemo(() => {
+    return filteredItems.reduce((acc, item) => {
+      if (!acc[item.category]) acc[item.category] = [];
+      acc[item.category].push(item);
+      return acc;
+    }, {});
+  }, [filteredItems]);
 
-  const lowStockItems = items.filter(
-    (i) => i.lowStockAt && i.quantity <= i.lowStockAt
-  );
+  // Memoize low stock items
+  const lowStockItems = useMemo(() => {
+    return items.filter((i) => i.lowStockAt && i.quantity <= i.lowStockAt);
+  }, [items]);
 
   if (loading) {
     return <div className="text-center py-12 text-gray-500">Loading...</div>;

@@ -1,13 +1,25 @@
 import { Routes, Route, NavLink } from 'react-router-dom';
-import Home from './pages/Home';
-import Inventory from './pages/Inventory';
-import MealPlan from './pages/MealPlan';
-import Shopping from './pages/Shopping';
-import Reviews from './pages/Reviews';
-import Calendar from './pages/Calendar';
-import Recipes from './pages/Recipes';
-import Settings from './pages/Settings';
+import { lazy, Suspense } from 'react';
 import { ErrorBoundary } from './components/ErrorBoundary';
+
+// Lazy load all pages for code splitting
+const Home = lazy(() => import('./pages/Home'));
+const Inventory = lazy(() => import('./pages/Inventory'));
+const MealPlan = lazy(() => import('./pages/MealPlan'));
+const Shopping = lazy(() => import('./pages/Shopping'));
+const Reviews = lazy(() => import('./pages/Reviews'));
+const Calendar = lazy(() => import('./pages/Calendar'));
+const Recipes = lazy(() => import('./pages/Recipes'));
+const Settings = lazy(() => import('./pages/Settings'));
+
+// Loading spinner for lazy-loaded pages
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <div className="animate-spin w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full" />
+    </div>
+  );
+}
 
 // Navigation items configuration
 const NAV_ITEMS = [
@@ -66,16 +78,18 @@ function App() {
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-4 py-6">
         <ErrorBoundary>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/inventory" element={<Inventory />} />
-            <Route path="/meal-plan" element={<MealPlan />} />
-            <Route path="/shopping" element={<Shopping />} />
-            <Route path="/reviews" element={<Reviews />} />
-            <Route path="/calendar" element={<Calendar />} />
-            <Route path="/recipes" element={<Recipes />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/inventory" element={<Inventory />} />
+              <Route path="/meal-plan" element={<MealPlan />} />
+              <Route path="/shopping" element={<Shopping />} />
+              <Route path="/reviews" element={<Reviews />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/recipes" element={<Recipes />} />
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </Suspense>
         </ErrorBoundary>
       </main>
     </div>
